@@ -6,7 +6,8 @@ import { submitLaktasi } from "@/features/skrining/nifas/laktasiForm"
 import SkriningFormShell from "@/features/skrining/components/SkriningFormShell"
 import ScreeningValidationSheet, { ScreeningMarker } from "../components/ScreeningValidationSheet"
 import useScreeningValidation from "../components/useScreeningValidation"
-import { numericOrMissing } from "../components/screeningValidationUI"
+import { isOutsideReferenceRange, numericOrMissing } from "../components/screeningValidationUI"
+import ReferenceHint from "../components/ReferenceHint"
 
 type Result = { warna: "HIJAU" | "KUNING" | "MERAH"; kategori: string; masalah?: string; faktorRisiko: string[]; faktorAman: string[] }
 
@@ -103,6 +104,8 @@ export default function LaktasiScreen({
               <div key={field.key} data-screening-field={field.key} className="rounded-[16px] bg-white px-3 py-2.5 ring-1 ring-[#D9E7E2]">
                 <label className="block text-xs text-[#33443F]">{field.label}<ScreeningMarker id={`laktasi-${field.key}-error`} error={validation.errors[field.key]} /></label>
                 <Input type="number" aria-label={field.label} aria-invalid={!!validation.errors[field.key]} aria-describedby={validation.errors[field.key] ? `laktasi-${field.key}-error` : undefined} value={field.value} onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))} className="h-auto border-0 bg-transparent p-0 text-base font-bold text-[#DB2777] shadow-none focus-visible:ring-0" />
+                {field.key === "frekuensiMenyusuPerHari" && <ReferenceHint text="Rentang acuan: 8–12 kali per 24 jam." warning={isOutsideReferenceRange(numericOrMissing(field.value), { min: 8, max: 12 })} />}
+                {field.key === "bakPerHari" && <ReferenceHint text="Rentang acuan: lebih dari 5 kali per hari." warning={isOutsideReferenceRange(numericOrMissing(field.value), { min: 5, minInclusive: false })} />}
               </div>
             ))}
           </div>

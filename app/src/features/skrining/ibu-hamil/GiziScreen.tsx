@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react"
 import { ukFromProfile, useLatestScreeningDraft } from "@/features/skrining/useLatestScreeningDraft"
-import { kategoriLILA } from "@/clinical-rules/imtLila"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import SkriningFormShell from "@/features/skrining/components/SkriningFormShell"
 import { submitGizi } from "@/features/skrining/ibu-hamil/giziForm"
 import ScreeningValidationSheet, { ScreeningMarker } from "../components/ScreeningValidationSheet"
 import useScreeningValidation from "../components/useScreeningValidation"
-import { numericOrMissing, weekFromSavedOrProfile } from "../components/screeningValidationUI"
+import { isOutsideReferenceRange, numericOrMissing, weekFromSavedOrProfile } from "../components/screeningValidationUI"
+import ReferenceHint from "../components/ReferenceHint"
 
 type GiziResult = Awaited<ReturnType<typeof submitGizi>>
 
@@ -38,7 +38,6 @@ export default function GiziScreen({ onBack, onSuccess, onOpenProfile }: { onBac
   const bbPreKg = numericOrMissing(form.bbPreKg)
   const tbCm = numericOrMissing(form.tbCm)
   const bbSekarangKg = numericOrMissing(form.bbSekarangKg)
-  const lila = form.lilaCm !== "" && Number(form.lilaCm) > 0 ? kategoriLILA(Number(form.lilaCm)) : null
   const validation = useScreeningValidation("imt_lila", { userId, bbPreKg, tbCm, bbSekarangKg, lilaCm: numericOrMissing(form.lilaCm), ukMinggu: numericOrMissing(form.ukMinggu) }, {
     bbPreKg: "BB awal (kg)", tbCm: "Tinggi (cm)", lilaCm: "LILA (cm)", bbSekarangKg: "BB kini (kg)", ukMinggu: "Usia kehamilan dari HPHT di Profil",
   })
@@ -69,7 +68,7 @@ export default function GiziScreen({ onBack, onSuccess, onOpenProfile }: { onBac
             {[
               { key: "bbPreKg", label: "BB awal (kg)", value: form.bbPreKg },
               { key: "tbCm", label: "Tinggi (cm)", value: form.tbCm },
-              { key: "lilaCm", label: "LILA (cm)", value: form.lilaCm },
+              { key: "lilaCm", label: "Lingkar Lengan Atas/LILA (cm)", value: form.lilaCm },
               { key: "bbSekarangKg", label: "BB kini (kg)", value: form.bbSekarangKg },
             ].map((field) => (
               <div key={field.key} data-screening-field={field.key} className="rounded-[16px] bg-white px-3 py-2.5 ring-1 ring-[#D9E7E2]">
@@ -83,6 +82,7 @@ export default function GiziScreen({ onBack, onSuccess, onOpenProfile }: { onBac
                   onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))}
                   className="h-auto border-0 bg-transparent p-0 text-base font-bold text-[#DB2777] shadow-none focus-visible:ring-0"
                 />
+                {field.key === "lilaCm" && <ReferenceHint text="Rentang acuan normal ≥23,5 cm." warning={isOutsideReferenceRange(numericOrMissing(field.value), { min: 23.5 })} />}
                 {fieldErrs[field.key] && <p className="text-[11px] text-[#C62828]">{fieldErrs[field.key]}</p>}
               </div>
             ))}
@@ -100,7 +100,6 @@ export default function GiziScreen({ onBack, onSuccess, onOpenProfile }: { onBac
         <Button className="min-h-12 w-full rounded-full bg-[#4A6E54] text-base font-bold text-white hover:bg-[#3D5C46]" disabled={loading} onClick={handle}>
           {loading ? "Menyimpan" : "Simpan hasil"}
         </Button>
-        <p className="text-xs leading-normal text-[#33443F]">LILA (cm) di bawah 23,5 menandakan KEK{lila === "KEK" ? ". Ukuran saat ini di bawah batas." : ""}</p>
       </div>
     </SkriningFormShell>
   )

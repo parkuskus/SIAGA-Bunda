@@ -117,9 +117,9 @@ export default function SupplementSection({ onAdd }: { onAdd: () => void }) {
           <div className="flex items-center justify-between">
             <p className="text-[15px] font-bold tracking-tight text-[#1D2B29]">{title}</p>
             <div className="flex gap-1">
-              <button onClick={() => setWeekOffset((o) => o - 1)} aria-label="Minggu lalu" className="grid size-9 place-items-center rounded-full bg-white text-[#4A6E54] ring-1 ring-[#D9E7E2]">‹</button>
-              <button onClick={() => { setWeekOffset(0); setSelected(todayISO) }} className="min-h-9 rounded-full bg-white px-3 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#D9E7E2]">Hari ini</button>
-              <button onClick={() => setWeekOffset((o) => o + 1)} aria-label="Minggu depan" className="grid size-9 place-items-center rounded-full bg-white text-[#4A6E54] ring-1 ring-[#D9E7E2]">›</button>
+              <button onClick={() => setWeekOffset((o) => o - 1)} aria-label="Minggu lalu" className="grid size-11 place-items-center rounded-full bg-white text-[#4A6E54] ring-1 ring-[#D9E7E2]">‹</button>
+              <button onClick={() => { setWeekOffset(0); setSelected(todayISO) }} className="min-h-11 rounded-full bg-white px-3 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#D9E7E2]">Hari ini</button>
+              <button onClick={() => setWeekOffset((o) => o + 1)} aria-label="Minggu depan" className="grid size-11 place-items-center rounded-full bg-white text-[#4A6E54] ring-1 ring-[#D9E7E2]">›</button>
             </div>
           </div>
 

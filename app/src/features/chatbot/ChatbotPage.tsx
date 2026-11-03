@@ -181,7 +181,7 @@ export default function ChatbotPage({ onClose }: { onClose: () => void }) {
       {msgs.every((message) => message.dari === "kira") && !loading && (
         <div className="flex shrink-0 flex-wrap gap-2 px-3 pb-3">
           {TOPIK_CEPAT.map((topic) => (
-            <button key={topic} type="button" onClick={() => void kirim(topic)} className="min-h-10 rounded-full bg-white px-3.5 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#B8CFC3] transition-colors hover:bg-[#EAF4F0] active:scale-[0.98]">
+            <button key={topic} type="button" onClick={() => void kirim(topic)} className="min-h-11 rounded-full bg-white px-3.5 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#B8CFC3] transition-colors hover:bg-[#EAF4F0] active:scale-[0.98]">
               {topic}
             </button>
           ))}

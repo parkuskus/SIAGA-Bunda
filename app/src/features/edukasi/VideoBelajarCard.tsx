@@ -18,7 +18,7 @@ export default function VideoBelajarCard({ judul, deskripsi, thumbnail, sumber }
             type="button"
             aria-expanded={terbuka}
             onClick={() => setTerbuka((value) => !value)}
-            className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-full bg-[#4A6E54] px-3.5 text-xs font-bold text-white transition-colors hover:bg-[#3D5C46] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D2B29] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EAF4F0]"
+            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#4A6E54] px-3.5 text-xs font-bold text-white transition-colors hover:bg-[#3D5C46] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D2B29] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EAF4F0]"
           >
             <Play className="size-3.5 fill-current" aria-hidden="true" />
             {terbuka ? "Tutup video" : "Tonton Video"}

@@ -8,7 +8,10 @@ import EmergencyOverlay from "@/shared/components/EmergencyOverlay"
 import { warnaMEOWS } from "@/clinical-rules/meows"
 import ScreeningValidationSheet, { ScreeningMarker } from "../components/ScreeningValidationSheet"
 import useScreeningValidation from "../components/useScreeningValidation"
-import { numericOrMissing } from "../components/screeningValidationUI"
+import { isOutsideReferenceRange, numericOrMissing } from "../components/screeningValidationUI"
+import ReferenceHint from "../components/ReferenceHint"
+import { db } from "@/data/db"
+import { postpartumDayFromBirthDate } from "./postpartumDay"
 
 type NifasResult = { kategori: "HIJAU" | "KUNING" | "MERAH"; warna: string; meows: string; faktorRisiko: string[]; faktorAman: string[] }
 
@@ -20,6 +23,7 @@ export default function NifasScreen({
   onSuccess: (r: NifasResult) => void
 }) {
   const { loading: draftLoading, userId, detail } = useLatestScreeningDraft("nifas")
+  const [birthDate, setBirthDate] = useState<string | null>(null)
   const [form, setForm] = useState({
     hariKe: "",
     suhu: "",
@@ -40,6 +44,19 @@ export default function NifasScreen({
   const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({})
   const [keluhanDitinjau, setKeluhanDitinjau] = useState(false)
   const [emergencyOpen, setEmergencyOpen] = useState(false)
+
+  useEffect(() => {
+    if (!userId) return
+    void db.bblProfiles.get(userId).then((baby) => setBirthDate(baby?.dataLahir?.slice(0, 10) ?? null)).catch(() => setBirthDate(null))
+  }, [userId])
+
+  /* eslint-disable react-hooks/set-state-in-effect -- Apply the recorded baby birth date after the Dexie lookup resolves. */
+  useEffect(() => {
+    if (draftLoading || !birthDate || form.hariKe || detail?.hariKe != null) return
+    const day = postpartumDayFromBirthDate(birthDate)
+    if (day !== null) setForm((current) => current.hariKe ? current : { ...current, hariKe: String(day) })
+  }, [birthDate, detail, draftLoading, form.hariKe])
+  /* eslint-enable react-hooks/set-state-in-effect */
   const validation = useScreeningValidation("nifas", {
     userId, ...form, hariKe: numericOrMissing(form.hariKe), suhu: numericOrMissing(form.suhu),
     sistolik: numericOrMissing(form.sistolik), diastolik: numericOrMissing(form.diastolik),
@@ -149,6 +166,12 @@ export default function NifasScreen({
                   className="h-auto border-0 bg-transparent p-0 text-base font-bold text-[#DB2777] shadow-none focus-visible:ring-0"
                 />
                 {fieldErrs[field.key] && <p className="text-[11px] text-[#C62828]">{fieldErrs[field.key]}</p>}
+                {field.key === "suhu" && <ReferenceHint text="Rentang acuan: 36,5–37,5 °C." warning={isOutsideReferenceRange(numericOrMissing(field.value), { min: 36.5, max: 37.5 })} />}
+                {field.key === "sistolik" && <ReferenceHint text="Rentang acuan aman: di bawah 140 mmHg." warning={isOutsideReferenceRange(numericOrMissing(field.value), { max: 140, maxInclusive: false })} />}
+                {field.key === "diastolik" && <ReferenceHint text="Rentang acuan aman: di bawah 90 mmHg." warning={isOutsideReferenceRange(numericOrMissing(field.value), { max: 90, maxInclusive: false })} />}
+                {field.key === "nadi" && <ReferenceHint text="Rentang acuan: 60–100 kali per menit." warning={isOutsideReferenceRange(numericOrMissing(field.value), { min: 60, max: 100 })} />}
+                {field.key === "spo2" && <ReferenceHint text="Rentang acuan: 95–100%." warning={isOutsideReferenceRange(numericOrMissing(field.value), { min: 95, max: 100 })} />}
+                {field.key === "perdarahanMl" && <ReferenceHint text="Rentang acuan: kurang dari 500 mL." warning={isOutsideReferenceRange(numericOrMissing(field.value), { max: 500, maxInclusive: false })} />}
                 {["nadi", "spo2"].includes(field.key) && <span className="text-[11px] text-[#6C757D]">Opsional</span>}
               </div>
             ))}

@@ -194,7 +194,7 @@ export default function LoginScreen({ onBack, onSuccess, onToRegister }: Props) 
     return (
       <div className="min-h-[100dvh] bg-[#FFFCF6] flex flex-col">
         <div className="mx-auto flex h-[128px] w-full max-w-[480px] shrink-0 items-center gap-2.5 rounded-b-[32px] bg-[#4A6E54] px-6 pb-[30px] pt-7">
-          <button onClick={() => setStep("form")} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/95 text-[#DB2777]">
+          <button onClick={() => setStep("form")} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/95 text-[#4A6E54]">
             <ChevronLeft className="size-5" />
           </button>
           <div className="min-w-0 flex-1 text-white">
@@ -248,7 +248,7 @@ export default function LoginScreen({ onBack, onSuccess, onToRegister }: Props) 
     return (
       <div className="min-h-[100dvh] bg-[#FFFCF6] flex flex-col">
         <div className="mx-auto flex w-full max-w-[480px] items-center gap-2.5 rounded-b-[32px] bg-[#4A6E54] px-6 pb-12 pt-[max(1.75rem,env(safe-area-inset-top))]">
-          <button onClick={() => { setStep("form"); setErr(null); setRecoverySent(false) }} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/95 text-[#DB2777]">
+          <button onClick={() => { setStep("form"); setErr(null); setRecoverySent(false) }} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/95 text-[#4A6E54]">
             <ChevronLeft className="size-5" />
           </button>
           <div className="min-w-0 flex-1 text-white">
@@ -276,7 +276,7 @@ export default function LoginScreen({ onBack, onSuccess, onToRegister }: Props) 
   return (
     <div className="min-h-[100dvh] bg-[#FFFCF6] flex flex-col">
       <div className="mx-auto flex w-full max-w-[480px] items-center gap-2.5 rounded-b-[32px] bg-[#4A6E54] px-6 pb-12 pt-[max(1.75rem,env(safe-area-inset-top))]">
-        <button onClick={onBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/95 text-[#DB2777]">
+        <button onClick={onBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/95 text-[#4A6E54]">
           <ChevronLeft className="size-5" />
         </button>
         <div className="min-w-0 flex-1 text-white">

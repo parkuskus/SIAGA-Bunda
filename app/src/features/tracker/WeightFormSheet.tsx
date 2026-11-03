@@ -102,7 +102,7 @@ export default function WeightFormSheet({
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#EAE6E0]" />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="!m-0 text-[18px] font-bold tracking-tight text-[#1E2326]">{isEdit ? "Ubah berat" : "Catat berat"}</h2>
-          <button onClick={onClose} aria-label="Tutup" className="grid size-8 place-items-center rounded-full bg-white text-[#6C757D] ring-1 ring-[#EAE6E0]">
+          <button onClick={onClose} aria-label="Tutup" className="grid size-11 place-items-center rounded-full bg-white text-[#4A6E54] ring-1 ring-[#EAE6E0]">
             <X className="size-4" />
           </button>
         </div>
@@ -135,7 +135,7 @@ export default function WeightFormSheet({
 
         {err && <p className="mt-3 text-center text-xs text-[#E57373]">{err}</p>}
 
-        <Button className="mt-4 w-full rounded-full bg-[#7AAE9A] hover:bg-[#6B9E8A] text-white py-6 text-sm font-semibold" disabled={loading} onClick={() => void handleSave()}>
+        <Button className="mt-4 w-full rounded-full bg-[#4A6E54] hover:bg-[#3D5C46] text-white py-6 text-sm font-semibold" disabled={loading} onClick={() => void handleSave()}>
           {loading ? "Menyimpan" : "Simpan"}
         </Button>
         {isEdit && (

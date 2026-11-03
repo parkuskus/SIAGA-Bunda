@@ -224,6 +224,13 @@ code {
 @layer base {
   * {
     @apply border-border outline-ring/50;}
+  button {
+    min-height: 44px;
+  }
+  button:focus-visible {
+    outline: 2px solid #4A6E54;
+    outline-offset: 2px;
+  }
   body {
     @apply bg-background text-foreground;}
   html {

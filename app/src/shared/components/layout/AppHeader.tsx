@@ -12,9 +12,9 @@ export default function AppHeader() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="size-9 rounded-full bg-[#FFFCF6] ring-1 ring-[#EAE6E0] grid place-items-center text-[#7AAE9A]" aria-label="Notifikasi">
+          <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-[#FFFCF6] text-[#7AAE9A] ring-1 ring-[#EAE6E0]">
             <Bell className="size-4" />
-          </button>
+          </span>
           <div className="size-8 rounded-full bg-[#EAF2EC] ring-1 ring-[#7AAE9A]/15 grid place-items-center text-sm font-semibold text-[#5A8A7A]">S</div>
         </div>
       </div>

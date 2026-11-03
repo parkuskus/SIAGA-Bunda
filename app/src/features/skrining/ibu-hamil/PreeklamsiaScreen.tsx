@@ -10,7 +10,8 @@ import EmergencyOverlay from "@/shared/components/EmergencyOverlay"
 import { kategoriTD } from "@/clinical-rules/mapCalculator"
 import ScreeningValidationSheet, { ScreeningMarker } from "../components/ScreeningValidationSheet"
 import useScreeningValidation from "../components/useScreeningValidation"
-import { numericOrMissing } from "../components/screeningValidationUI"
+import { isOutsideReferenceRange, numericOrMissing } from "../components/screeningValidationUI"
+import ReferenceHint from "../components/ReferenceHint"
 
 type PECheck = "pe" | "ht" | "ginjal" | "dm" | "autoimun" | "keluarga"
 
@@ -190,6 +191,8 @@ export default function PreeklamsiaScreen({ onBack, onSuccess }: { onBack: () =>
                     <div key={field.key} data-screening-field={field.key} className="rounded-[16px] bg-white px-3 py-2.5 ring-1 ring-[#D9E7E2]">
                       <label className="block text-xs text-[#33443F]">{field.label}<ScreeningMarker id={`pe-${field.key}-error`} error={validation.errors[field.key]} /></label>
                       <Input type="number" aria-label={field.label} aria-invalid={!!validation.errors[field.key]} aria-describedby={validation.errors[field.key] ? `pe-${field.key}-error` : undefined} value={field.value} onChange={(event) => field.set(event.target.value)} className="h-auto border-0 bg-transparent p-0 text-base font-bold text-[#DB2777] shadow-none focus-visible:ring-0" />
+                    {field.key === "sistolik" && <ReferenceHint text="Rentang acuan aman: di bawah 140 mmHg." warning={isOutsideReferenceRange(numericOrMissing(field.value), { max: 140, maxInclusive: false })} />}
+                    {field.key === "diastolik" && <ReferenceHint text="Rentang acuan aman: di bawah 90 mmHg." warning={isOutsideReferenceRange(numericOrMissing(field.value), { max: 90, maxInclusive: false })} />}
                     {(field.label === "Usia kehamilan (minggu)" || field.label === "Usia ibu (tahun)") && <span className="text-[11px] text-[#33443F]">Otomatis dari profil</span>}
                   </div>
                 ))}

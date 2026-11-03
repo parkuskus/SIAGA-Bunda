@@ -52,7 +52,7 @@ export default function ProfileDetailScreen({
     <div className="-mx-4 -mt-5">
       <header className="rounded-b-[32px] bg-[#4A6E54] px-6 pb-6 pt-[max(1.75rem,env(safe-area-inset-top))] text-white">
         <div className="flex items-center gap-2.5">
-          <button onClick={onBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/95 text-[#DB2777] transition-transform active:scale-95">
+          <button onClick={onBack} aria-label="Kembali" className="grid size-11 shrink-0 place-items-center rounded-full bg-white/95 text-[#4A6E54] transition-transform active:scale-95">
             <ChevronLeft className="size-5" />
           </button>
           <div>
@@ -76,7 +76,7 @@ export default function ProfileDetailScreen({
         <section className="rounded-[24px] bg-[#EAF4F0] p-3.5">
           <div className="flex items-center justify-between gap-2">
             <h2 className="!m-0 text-lg font-bold text-[#1D2B29]">Data Kehamilan</h2>
-            <button onClick={onEdit} className="min-h-10 rounded-full bg-white px-4 text-xs font-bold text-[#4A6E54] ring-1 ring-[#D9E7E2] transition-colors hover:bg-[#F7FAF8]">Ubah</button>
+            <button onClick={onEdit} className="min-h-11 rounded-full bg-white px-4 text-xs font-bold text-[#4A6E54] ring-1 ring-[#D9E7E2] transition-colors hover:bg-[#F7FAF8]">Ubah</button>
           </div>
           <div className="mt-1">
             <Row label="GPA" value={`${gpa} (Gravida ${profile.gravida}, Para ${profile.para}, Abortus ${profile.abortus})`} />

@@ -18,8 +18,35 @@ import WeightHistory from "@/features/tracker/WeightHistory"
 import DiaryHistory from "@/features/tracker/DiaryHistory"
 import MedForm from "@/features/tracker/MedForm"
 import type { WeightEntry, ANCVisit, DiaryEntry } from "@/data/db"
+import { WEIGHT_GAIN_REFERENCE } from "@/features/tracker/weightGainReference"
 
 const DEMO_HPHT = "2026-02-12"
+
+function WeightGainTargetTable({ imt }: { imt?: number }) {
+  const active = imt === undefined ? null : kategoriIMT(imt).kat
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-xs font-bold text-[#1D2B29]">Target kenaikan total berdasarkan IMT pra-hamil</p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[420px] border-collapse text-left text-[11px]" aria-label="Target kenaikan berat badan menurut IMT sebelum hamil">
+          <thead><tr className="border-b border-[#D9E7E2] text-[#536961]"><th scope="col" className="w-[29%] py-2 pr-2 font-semibold">IMT sebelum hamil</th><th scope="col" className="w-[35%] px-2 py-2 text-right font-semibold">Total kenaikan selama hamil</th><th scope="col" className="w-[36%] py-2 pl-2 text-right font-semibold">Rata-rata trimester 2 per minggu</th></tr></thead>
+          <tbody>{WEIGHT_GAIN_REFERENCE.map(({ key, label, sampleIMT, weeklyKg }) => {
+            const { kat, targetKg } = kategoriIMT(sampleIMT)
+            return (
+              <tr key={key} className={`border-b border-[#D9E7E2] last:border-0 ${kat === active ? "font-bold text-[#1D2B29]" : "text-[#33443F]"}`}>
+                <th scope="row" className="py-2 pr-2 font-semibold">{label}</th>
+                <td className="px-2 py-2 text-right">{String(targetKg[0]).replace(".", ",")}–{String(targetKg[1]).replace(".", ",")} kg</td>
+                <td className="py-2 pl-2 text-right">{weeklyKg[0].toFixed(2).replace(".", ",")}–{weeklyKg[1].toFixed(2).replace(".", ",")} kg</td>
+              </tr>
+            )
+          })}</tbody>
+        </table>
+      </div>
+      <p className="text-[11px] leading-snug text-[#536961]">Acuan IOM 2009. Target kenaikan total kehamilan dan rata-rata minggu trimester kedua.</p>
+    </div>
+  )
+}
+
 export default function PengingatPage({ setShowBottomNav }: { setShowBottomNav: (visible: boolean) => void }) {
   const [weights, setWeights] = useState<WeightEntry[]>([])
   const [anc, setAnc] = useState<ANCVisit[]>([])
@@ -27,8 +54,7 @@ export default function PengingatPage({ setShowBottomNav }: { setShowBottomNav: 
   const [hpht, setHpht] = useState<string>(DEMO_HPHT)
   const [bbPre, setBbPre] = useState<number>(55)
   const [tbCm, setTbCm] = useState<number>(160)
-  const [startInfo, setStartInfo] = useState<string | null>(null)
-  const [bbStatus, setBbStatus] = useState<{ kenaikan: number; trajectory: string } | null>(null)
+  const [giziBaseline, setGiziBaseline] = useState<{ bbPre: number; tbCm: number } | null>(null)
   const [showWeightSheet, setShowWeightSheet] = useState(false)
   const [showWeightHistory, setShowWeightHistory] = useState(false)
   const [editingWeight, setEditingWeight] = useState<WeightEntry | null>(null)
@@ -62,32 +88,19 @@ export default function PengingatPage({ setShowBottomNav }: { setShowBottomNav: 
       const gizi = await db.screeningResults.where("userId").equals(id).filter((r) => r.tipe === "imt_lila").toArray()
       gizi.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       const d = gizi[0]?.detail as { bbPreKg?: number; tbCm?: number } | undefined
-      if (d?.bbPreKg) { bbPreLok = d.bbPreKg; dariGizi = true }
-      if (d?.tbCm) tbLok = d.tbCm
-    } catch { /* Pengingat lokal tetap berjalan tanpa data profil tersimpan. */ }
+      if (typeof d?.bbPreKg === "number" && Number.isFinite(d.bbPreKg) && d.bbPreKg > 0 && typeof d.tbCm === "number" && Number.isFinite(d.tbCm) && d.tbCm > 0) {
+        bbPreLok = d.bbPreKg
+        tbLok = d.tbCm
+        dariGizi = true
+        setGiziBaseline({ bbPre: bbPreLok, tbCm: tbLok })
+      } else setGiziBaseline(null)
+    } catch { setGiziBaseline(null) /* Pengingat lokal tetap berjalan tanpa data profil tersimpan. */ }
     const w = await db.weightEntries.where("userId").equals(id).toArray()
     w.sort((a, b) => a.tanggal.localeCompare(b.tanggal))
     if (!dariGizi && w.length) bbPreLok = w[0].beratKg
     setBbPre(bbPreLok)
     setTbCm(tbLok)
     setWeights(w)
-    if (dariGizi) setStartInfo(`Acuan awal: BB pra-hamil ${bbPreLok} kg (skrining gizi)`)
-    else if (w.length) {
-      const t = new Date(`${w[0].tanggal}T00:00:00`)
-      const tLabel = isNaN(t.getTime()) ? w[0].tanggal : t.toLocaleDateString("id-ID", { day: "numeric", month: "short" })
-      setStartInfo(`Berat awal otomatis dari data paling lama: ${w[0].beratKg} kg (${tLabel})`)
-    } else setStartInfo(null)
-    // status trajectory dari entri terakhir
-    if (w.length) {
-      try {
-        const ukNow = weeksFromHpht(h)
-        const imt = calcIMT(bbPreLok, tbLok)
-        const { targetKg } = kategoriIMT(imt)
-        const kenaikan = Math.round((w[w.length - 1].beratKg - bbPreLok) * 10) / 10
-        const targetProp = ((targetKg[0] + targetKg[1]) / 2) * (ukNow / 40)
-        setBbStatus({ kenaikan, trajectory: kenaikan < targetProp - 1 ? "Kurang" : kenaikan > targetProp + 2 ? "Lebih" : "Normal" })
-      } catch { /* Data tracker opsional; jangan hentikan tampilan utama. */ }
-    } else setBbStatus(null)
     const a = await reconcileANC(id, h)
     a.sort((x, y) => x.tanggalTerjadwal.localeCompare(y.tanggalTerjadwal))
     setAnc(a)
@@ -262,23 +275,14 @@ export default function PengingatPage({ setShowBottomNav }: { setShowBottomNav: 
           <section className="space-y-2.5">
             <div className="flex items-center justify-between gap-3 px-1">
               <h2 className="!m-0 text-[15px] font-bold text-[#1D2B29]">Berat badan</h2>
-              <button onClick={() => setShowWeightHistory(true)} className="min-h-10 rounded-full bg-white px-3 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#D9E7E2] active:scale-[0.98] transition">Riwayat</button>
+              <button onClick={() => setShowWeightHistory(true)} className="min-h-11 rounded-full bg-white px-3 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#D9E7E2] active:scale-[0.98] transition">Riwayat</button>
             </div>
           <Card className="rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none">
             <CardContent className="p-4">
             <div className="mt-1 min-w-0 w-full">
               <WeightChart entries={weightBars} targetAbs={targetAbs} />
             </div>
-            {startInfo && <p className="mt-1 text-center text-[11px] text-[#8A8F93]">{startInfo}</p>}
-            <p className="mt-3 text-xs text-center text-[#8A8F93]">
-              {lastWeight !== null ? `${lastWeight} kg tercatat` : "Belum ada data"}
-              {bbStatus ? ` · naik ${bbStatus.kenaikan} kg (${bbStatus.trajectory})` : ""}
-            </p>
-            {bbStatus && bbStatus.trajectory !== "Normal" && (
-              <p className={`mt-1 text-center text-xs font-semibold ${bbStatus.trajectory === "Kurang" ? "text-[#8A6D00]" : "text-[#C62828]"}`}>
-                {bbStatus.trajectory === "Kurang" ? "Kenaikan kurang dari target — konsultasi gizi" : "Kenaikan melebihi target — atur pola makan"}
-              </p>
-            )}
+            <WeightGainTargetTable imt={giziBaseline ? calcIMT(giziBaseline.bbPre, giziBaseline.tbCm) : undefined} />
             <div className="mt-3">
               {editingTarget ? (
                 <div className="flex gap-2">
@@ -288,7 +292,7 @@ export default function PengingatPage({ setShowBottomNav }: { setShowBottomNav: 
               ) : (
                 <div className="flex items-center justify-between rounded-[16px] bg-white px-3 py-2.5 ring-1 ring-[#D9E7E2]">
                   <p className="text-xs text-[#536961]">Target {targetManual !== null ? "manual" : "IOM"} <span className="font-bold text-[#1D2B29]">{targetAbs !== null ? `${targetAbs} kg` : "-"}</span></p>
-                  <button onClick={() => { setTargetDraft(targetManual !== null ? String(targetManual) : targetAbs !== null ? String(targetAbs) : ""); setEditingTarget(true) }} className="min-h-10 px-2 text-xs font-semibold text-[#4A6E54]">Ubah</button>
+                  <button onClick={() => { setTargetDraft(targetManual !== null ? String(targetManual) : targetAbs !== null ? String(targetAbs) : ""); setEditingTarget(true) }} className="min-h-11 px-2 text-xs font-semibold text-[#4A6E54]">Ubah</button>
                 </div>
               )}
             </div>
@@ -325,7 +329,7 @@ export default function PengingatPage({ setShowBottomNav }: { setShowBottomNav: 
                 <h2 className="!m-0 text-[15px] font-bold text-[#1D2B29]">Diary harian</h2>
                 <p className="mt-0.5 text-xs text-[#536961]">Tulis catatan untuk hari ini</p>
               </div>
-              <button onClick={() => setShowDiaryHistory(true)} className="min-h-10 rounded-full bg-white px-3.5 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#D9E7E2] active:scale-[0.98] transition">Riwayat</button>
+              <button onClick={() => setShowDiaryHistory(true)} className="min-h-11 rounded-full bg-white px-3.5 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#D9E7E2] active:scale-[0.98] transition">Riwayat</button>
             </div>
             <Card className="rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none">
               <CardContent className="space-y-2 p-4">

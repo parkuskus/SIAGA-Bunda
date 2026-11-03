@@ -159,7 +159,7 @@ export default function App() {
         <button
           aria-label="Tanya Kira"
           onClick={() => setShowChat(true)}
-          className="fixed bottom-24 right-[max(1rem,calc(50%-240px+1rem))] z-40 grid size-[56px] place-items-center rounded-full bg-[#DB2777] text-white shadow-lg active:scale-95"
+          className="fixed bottom-24 right-[max(1rem,calc(50%-240px+1rem))] z-40 grid size-[56px] place-items-center rounded-full bg-[#4A6E54] text-white shadow-lg active:scale-95"
         >
           <MessageCircleHeart className="size-6" />
         </button>
