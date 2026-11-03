@@ -140,7 +140,7 @@ export default function DangerSignScreen({ onBack, onSuccess }: { onBack: () => 
                   </div>
                 </div>
               )}
-              {index === 4 && <p className="py-1 text-xs text-[#33443F]">Masih ada 4 gejala lain di bawah</p>}
+              {index === 4}
             </div>
           )
         })}
