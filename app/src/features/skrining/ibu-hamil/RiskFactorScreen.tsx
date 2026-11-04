@@ -6,7 +6,8 @@ import { submitRiskFactor } from "@/features/skrining/ibu-hamil/riskFactorForm"
 import SkriningFormShell from "@/features/skrining/components/SkriningFormShell"
 import ScreeningValidationSheet, { ScreeningMarker } from "../components/ScreeningValidationSheet"
 import useScreeningValidation from "../components/useScreeningValidation"
-import { numericOrMissing, type ScreeningIssue } from "../components/screeningValidationUI"
+import { isOutsideReferenceRange, numericOrMissing, type ScreeningIssue } from "../components/screeningValidationUI"
+import ReferenceHint from "../components/ReferenceHint"
 
 type Result = { skor: number; kategori: string; warna: string; faktorRisiko: string[]; faktorAman: string[] }
 
@@ -324,10 +325,12 @@ export default function RiskFactorScreen({
                 ].map((field) => (
                    <div key={field.key} data-screening-field={field.key} className="rounded-[16px] bg-white px-3 py-2.5 ring-1 ring-[#D9E7E2]">
                      <label className="block text-xs text-[#33443F]">{field.label}<ScreeningMarker id={`risk-${field.key}-error`} error={validation.errors[field.key]} /></label>
-                    <div className="flex items-center gap-1">
-                       <Input type="number" aria-label={field.label} aria-invalid={!!validation.errors[field.key]} aria-describedby={validation.errors[field.key] ? `risk-${field.key}-error` : undefined} value={field.value} onChange={(e) => field.set(e.target.value)} className="h-auto border-0 bg-transparent p-0 text-base font-bold text-[#DB2777] shadow-none focus-visible:ring-0" />
-                    </div>
-                    {fieldErrs[field.key] && <p className="text-[11px] text-[#E57373]">{fieldErrs[field.key]}</p>}
+                     <div className="flex items-center gap-1">
+                        <Input type="number" aria-label={field.label} aria-invalid={!!validation.errors[field.key]} aria-describedby={validation.errors[field.key] ? `risk-${field.key}-error` : undefined} value={field.value} onChange={(e) => field.set(e.target.value)} className="h-auto border-0 bg-transparent p-0 text-base font-bold text-[#DB2777] shadow-none focus-visible:ring-0" />
+                     </div>
+                     {field.key === "sistolik" && <ReferenceHint text="Rentang acuan aman: di bawah 140 mmHg." warning={isOutsideReferenceRange(numericOrMissing(field.value), { max: 140, maxInclusive: false })} />}
+                     {field.key === "diastolik" && <ReferenceHint text="Rentang acuan aman: di bawah 90 mmHg." warning={isOutsideReferenceRange(numericOrMissing(field.value), { max: 90, maxInclusive: false })} />}
+                     {fieldErrs[field.key] && <p className="text-[11px] text-[#E57373]">{fieldErrs[field.key]}</p>}
                   </div>
                 ))}
               </div>
