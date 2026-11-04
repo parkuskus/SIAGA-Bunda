@@ -239,12 +239,15 @@ serve(async (req) => {
             return;
           }
           if (pending) send({ type: "delta", text: pending });
+          const completionMs = Math.round(performance.now() - completionStarted);
           // Chat history is best-effort and must not block the streamed reply.
+          const persistenceStarted = performance.now();
           await supabase.from("chat_messages").insert([
             { user_id: user.id, role: "user", content: message },
             { user_id: user.id, role: "assistant", content: answer, sources },
           ]).then(({ error }) => { if (error) console.warn("[chat] history save failed"); });
-          console.info("[chat] timing_ms", { embedding: embeddingMs, retrieval: retrievalMs, firstToken: firstTokenMs, completion: Math.round(performance.now() - completionStarted), total: Math.round(performance.now() - requestStarted) });
+          const persistenceMs = Math.round(performance.now() - persistenceStarted);
+          console.info("[chat] timing_ms", { embedding: embeddingMs, retrieval: retrievalMs, firstToken: firstTokenMs, completion: completionMs, persistence: persistenceMs, total: Math.round(performance.now() - requestStarted) });
           send({ type: "done", answer, sources, verified, escalate, hasRedResult: adaMerah });
           controller.close();
         } catch {

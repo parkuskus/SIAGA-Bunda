@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import { ArrowUp, Plus, X, ShieldCheck } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import { tanyaChatbot } from "@/services/chatService"
+import { createChatTelemetry } from "@/services/chatTelemetry"
 import { MAX_CHAT_MESSAGE_CHARS } from "../../../../supabase/functions/_shared/chatRequest"
 import { getCurrentUserId } from "@/data/currentUser"
 import { shareViaWA } from "@/services/exportService"
@@ -65,6 +66,7 @@ export default function ChatbotPage({ onClose }: { onClose: () => void }) {
   async function kirim(text = input, allowExternalProcessing = externalConsent) {
     const pesan = text.trim()
     if (!pesan || loading) return
+    const telemetry = createChatTelemetry()
     const history = msgs.slice(1).slice(-6)
       .map((message) => ({ role: message.dari === "ibu" ? "user" as const : "assistant" as const, content: message.teks }))
     setLoading(true)
@@ -74,17 +76,20 @@ export default function ChatbotPage({ onClose }: { onClose: () => void }) {
         setPendingExternal(pesan)
         return
       }
+      if (localReply) telemetry.firstOutput(localReply.offline ? "offline_faq" : "local")
       setPendingExternal(null)
       setInput("")
       if (composer.current) composer.current.style.height = "48px"
       setMsgs((current) => [...current, { dari: "ibu", teks: pesan }])
       const reply = localReply ?? await tanyaChatbot(pesan, history, (delta) => {
+        telemetry.firstOutput("stream")
         setMsgs((current) => {
           const last = current[current.length - 1]
           if (last?.dari === "kira") return [...current.slice(0, -1), { ...last, teks: last.teks + delta }]
           return [...current, { dari: "kira", teks: delta }]
         })
       }, true)
+      if (!localReply) telemetry.firstOutput(reply.offline ? "fallback" : "response")
       setMsgs((current) => {
         const last = current[current.length - 1]
         const answer = { dari: "kira" as const, teks: reply.answer, verified: reply.verified, sources: reply.sources }
@@ -92,7 +97,10 @@ export default function ChatbotPage({ onClose }: { onClose: () => void }) {
         return [...current, answer]
       })
       if (reply.escalate) setEmergency(true)
+      telemetry.complete()
     } catch {
+      telemetry.firstOutput("error")
+      telemetry.complete()
       setMsgs((current) => {
         const error = { dari: "kira" as const, teks: "Maaf Bunda, Kira belum bisa menjawab sekarang. Coba lagi sebentar lagi ya." }
         const last = current[current.length - 1]
