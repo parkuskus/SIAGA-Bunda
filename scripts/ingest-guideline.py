@@ -10,16 +10,13 @@ import sys
 
 import pypdf
 import requests
-from dotenv import load_dotenv
 from supabase import create_client
+from guideline_ingest_config import load_ingest_env
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-load_dotenv(os.path.join(ROOT, "supabase", ".env"))
 
 PDF = os.path.join(ROOT, "assets", "Guideline Chatbot_SIAGA.pdf")
 LABEL = "Guideline Chatbot SIAGA"
-BASE_URL = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
-EMB_MODEL = os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small")
 CHUNK, OVERLAP, BATCH = 700, 100, 32
 
 
@@ -46,9 +43,9 @@ def embed(texts: list[str]) -> list[list[float]]:
     for i in range(0, len(texts), BATCH):
         part = texts[i : i + BATCH]
         r = requests.post(
-            f"{BASE_URL}/embeddings",
+            f"{os.getenv('LLM_BASE_URL', 'https://openrouter.ai/api/v1')}/embeddings",
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
-            json={"model": EMB_MODEL, "input": part},
+            json={"model": os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small"), "input": part},
             timeout=120,
         )
         r.raise_for_status()
@@ -60,7 +57,20 @@ def embed(texts: list[str]) -> list[list[float]]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0, help="coba N chunk pertama saja")
+    ap.add_argument("--env-file", default=os.path.join(ROOT, "supabase", ".env"))
+    ap.add_argument("--staging-project-ref", default="", help="ref wajib untuk mencegah ingest ke proyek lain")
     args = ap.parse_args()
+
+    try:
+        config = load_ingest_env(args.env_file, args.staging_project_ref or None)
+    except (OSError, ValueError) as error:
+        print(f"konfigurasi ingest ditolak: {error}")
+        return 1
+    if args.staging_project_ref:
+        os.environ.update(config)
+    else:
+        for key, value in config.items():
+            os.environ.setdefault(key, value)
 
     for v in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "LLM_API_KEY"):
         if not os.getenv(v):
@@ -97,4 +107,5 @@ def main() -> int:
     return 0
 
 
-sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())

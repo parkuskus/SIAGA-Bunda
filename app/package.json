@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/*.test.mjs",
+    "eval:chat:live": "node --env-file=../supabase/.env.staging --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/eval-chat-live.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

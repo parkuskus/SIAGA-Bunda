@@ -6,6 +6,7 @@ supabase/.env
 supabase/.temp/
 app/supabase/
 .env
+.env.staging
 
 # local helper repository; not required to deploy the app
 /mcp-auth-helper/

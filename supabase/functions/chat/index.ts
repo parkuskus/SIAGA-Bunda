@@ -6,7 +6,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.112.4";
 import { quickChatReply, retrievalTerms, shouldEscalate } from "../_shared/chatPolicy.ts";
-import { buildExternalLlmMessages } from "../_shared/chatContext.ts";
+import { buildExternalLlmMessages, chatAuthorizationHeaders } from "../_shared/chatContext.ts";
 import { ChatRequestError, minimizeExternalText, parseChatPayload, readBoundedJson, requireExternalConsent } from "../_shared/chatRequest.ts";
 import { hasMfaClaim } from "../_shared/emailMfa.ts";
 
@@ -95,7 +95,10 @@ serve(async (req) => {
     const supabase = createClient(
       supabaseUrl,
       anonKey,
-      { auth: { persistSession: false, autoRefreshToken: false } },
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: chatAuthorizationHeaders(accessToken) },
+      },
     );
     const { data: { user }, error: authErr } = await supabase.auth.getUser(accessToken);
     if (authErr || !user) return Response.json({ error: "unauthorized" }, { status: 401, headers: corsHeaders });
