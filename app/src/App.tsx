@@ -121,7 +121,7 @@ export default function App() {
     return <Suspense fallback={null}><RegisterScreen onBack={() => setOnboarding("splash")} onSuccess={enterApp} onToLogin={() => setOnboarding("login")} /></Suspense>
   }
   if (onboarding === "login") {
-    return <Suspense fallback={null}><LoginScreen onBack={() => setOnboarding("splash")} onSuccess={enterApp} onToRegister={() => setOnboarding("register")} /></Suspense>
+    return <Suspense fallback={null}><LoginScreen onBack={() => setOnboarding("splash")} onSuccess={enterApp} onPasswordRecovery={() => setOnboarding("reset-password")} onToRegister={() => setOnboarding("register")} /></Suspense>
   }
   if (onboarding === "reset-password") {
     return <Suspense fallback={null}><PasswordResetScreen onBack={() => setOnboarding("login")} /></Suspense>

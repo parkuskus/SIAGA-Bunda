@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { validatePassword } from "./passwordPolicy.ts";
-import { completePasswordReset, hasVerifiedMfaToken, loginWithPassword, maskEmail, verifyMfa } from "./authFlow.ts";
+import { completePasswordReset, hasVerifiedMfaToken, loginWithPassword, maskEmail, verifyPasswordRecoveryOtp } from "./authFlow.ts";
 
 function jwt(claims) {
   const encoded = Buffer.from(JSON.stringify(claims)).toString("base64url");
@@ -17,53 +17,26 @@ test("password policy requires matching confirmation", () => {
   assert.equal(validatePassword("Abc12345", "Abc12346"), "Konfirmasi sandi tidak sama");
 });
 
-test("wrong password returns one generic error and does not start OTP", async () => {
-  let otpStarted = false;
+test("wrong password returns one generic error", async () => {
   const auth = { signInWithPassword: async () => ({ error: new Error("email not found") }) };
-  await assert.rejects(loginWithPassword(auth, async () => { otpStarted = true; return {}; }, "nobody@example.id", "bad"), {
+  await assert.rejects(loginWithPassword(auth, "nobody@example.id", "bad"), {
     message: "Email atau sandi tidak cocok",
   });
-  assert.equal(otpStarted, false);
 });
 
-test("OTP send failure revokes the temporary password session", async () => {
-  let signedOut = false;
-  const auth = {
-    signInWithPassword: async () => ({ error: null }),
-    signOut: async () => { signedOut = true; },
-  };
-  await assert.rejects(loginWithPassword(auth, async () => ({ error: new Error("Resend internal error") }), "bunda@example.id", "secret"), {
-    message: "Kode verifikasi belum dapat dikirim. Coba lagi.",
-  });
-  assert.equal(signedOut, true);
+test("successful password login returns its user ID without a second-factor call", async () => {
+  const auth = { signInWithPassword: async () => ({ data: { session: { user: { id: "user-1" } } }, error: null }) };
+  assert.equal(await loginWithPassword(auth, "bunda@example.id", "secret"), "user-1");
 });
 
-test("wrong or expired OTP does not refresh the session", async () => {
-  let refreshed = false;
-  const auth = { refreshSession: async () => { refreshed = true; return {}; }, signOut: async () => ({}) };
-  await assert.rejects(verifyMfa(auth, async () => ({ error: new Error("expired") }), "000000"), /Kode salah atau kedaluwarsa/);
-  assert.equal(refreshed, false);
+test("recovery OTP is checked by Supabase as a recovery token", async () => {
+  let input;
+  await verifyPasswordRecoveryOtp({ verifyOtp: async (value) => { input = value; return { data: { session: { access_token: "recovery" } }, error: null }; } }, "bunda@example.id", "123456");
+  assert.deepEqual(input, { email: "bunda@example.id", token: "123456", type: "recovery" });
 });
 
-test("successful OTP refresh requires a server-signed MFA claim", async () => {
-  let refreshed = false;
-  const auth = {
-    refreshSession: async () => { refreshed = true; return { data: { session: { access_token: jwt({ app_mfa_verified: true }) } }, error: null }; },
-    signOut: async () => ({ error: null }),
-  };
-  const session = await verifyMfa(auth, async (code) => ({ error: code === "246810" ? null : new Error("bad") }), "246810");
-  assert.equal(refreshed, true);
-  assert.equal(hasVerifiedMfaToken(session.access_token), true);
-});
-
-test("a refresh without the MFA claim is rejected and signed out", async () => {
-  let signedOut = false;
-  const auth = {
-    refreshSession: async () => ({ data: { session: { access_token: jwt({ sub: "user" }) } }, error: null }),
-    signOut: async () => { signedOut = true; return { error: null }; },
-  };
-  await assert.rejects(verifyMfa(auth, async () => ({ error: null }), "246810"), /Sesi belum terverifikasi/);
-  assert.equal(signedOut, true);
+test("invalid recovery OTP is rejected", async () => {
+  await assert.rejects(verifyPasswordRecoveryOtp({ verifyOtp: async () => ({ error: new Error("expired") }) }, "bunda@example.id", "000000"), /Kode salah atau kedaluwarsa/);
 });
 
 test("MFA claim parser fails closed on malformed tokens and string claims", () => {

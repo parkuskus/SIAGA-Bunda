@@ -3,26 +3,21 @@ import { validatePassword } from "./passwordPolicy.ts";
 type AuthResult = { error: unknown | null };
 
 type AuthClient = {
-  signInWithPassword: (credentials: { email: string; password: string }) => Promise<AuthResult>;
-  refreshSession: () => Promise<{ data?: { session?: { access_token?: string } | null }; error: unknown | null }>;
-  signOut: (options: { scope: "local" }) => Promise<AuthResult>;
+  signInWithPassword: (credentials: { email: string; password: string }) => Promise<AuthResult & {
+    data?: { session?: { user?: { id?: string } } | null };
+  }>;
 };
 
 export async function loginWithPassword(
-  auth: AuthClient,
-  startMfa: () => Promise<AuthResult>,
+  auth: Pick<AuthClient, "signInWithPassword">,
   email: string,
   password: string,
-): Promise<void> {
-  const { error } = await auth.signInWithPassword({ email, password });
+): Promise<string> {
+  const { data, error } = await auth.signInWithPassword({ email, password });
   if (error) throw new Error("Email atau sandi tidak cocok");
-  try {
-    const result = await startMfa();
-    if (result.error) throw result.error;
-  } catch {
-    try { await auth.signOut({ scope: "local" }); } catch { /* Never keep an unverified local session after OTP delivery fails. */ }
-    throw new Error("Kode verifikasi belum dapat dikirim. Coba lagi.");
-  }
+  const userId = data?.session?.user?.id;
+  if (!userId) throw new Error("Sesi masuk tidak ditemukan. Coba masuk kembali.");
+  return userId;
 }
 
 export function hasVerifiedMfaToken(token: string | null | undefined): boolean {
@@ -44,21 +39,15 @@ export function maskEmail(email: string): string {
   return `${local[0]}***@${domain}`;
 }
 
-export async function verifyMfa(
-  auth: Pick<AuthClient, "refreshSession" | "signOut">,
-  verifyCode: (code: string) => Promise<AuthResult>,
-  code: string,
-): Promise<{ access_token: string }> {
-  const { error: verifyError } = await verifyCode(code);
-  if (verifyError) throw new Error("Kode salah atau kedaluwarsa");
-
-  const { data, error } = await auth.refreshSession();
-  const token = data?.session?.access_token;
-  if (error || !token || !hasVerifiedMfaToken(token)) {
-    try { await auth.signOut({ scope: "local" }); } catch { /* A session without the server claim remains denied by RLS. */ }
-    throw new Error("Sesi belum terverifikasi. Silakan masuk kembali.");
-  }
-  return { access_token: token };
+export async function verifyPasswordRecoveryOtp(
+  auth: { verifyOtp: (input: { email: string; token: string; type: "recovery" }) => Promise<AuthResult & {
+    data?: { session?: { access_token?: string } | null };
+  }> },
+  email: string,
+  token: string,
+): Promise<void> {
+  const { data, error } = await auth.verifyOtp({ email, token, type: "recovery" });
+  if (error || !data?.session?.access_token) throw new Error("Kode salah atau kedaluwarsa");
 }
 
 export async function completePasswordReset(

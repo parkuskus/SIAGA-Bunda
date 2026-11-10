@@ -6,6 +6,7 @@ const migration = await readFile('../supabase/migrations/017_fail_closed_default
 const functionMigration = await readFile('../supabase/migrations/018_revoke_global_function_execute.sql', 'utf8').catch(() => '')
 const rlsHarness = await readFile('scripts/check-rls-ab.mjs', 'utf8')
 const mfaMigration = await readFile('../supabase/migrations/015_email_mfa.sql', 'utf8')
+const passwordMigration = await readFile('../supabase/migrations/019_password_login_claim.sql', 'utf8')
 
 assert.match(config, /^auto_expose_new_tables\s*=\s*false\s*$/m, 'local Supabase API must fail closed for new tables')
 assert.match(migration, /alter default privileges for role postgres in schema public\s+revoke all on tables from public, anon, authenticated, service_role/i)
@@ -31,8 +32,7 @@ for (const policy of [
   assert.ok(policy[0] === 'profiles' ? rlsHarness.includes("from('profiles')") : rlsHarness.includes(`table: '${policy[0]}'`), `${policy[0]} is covered by A/B row-operation tests`)
 }
 
-assert.ok(rlsHarness.includes("functions.invoke('mfa-start'"), 'A/B test obtains real MFA verification')
-assert.ok(rlsHarness.includes("functions.invoke('mfa-verify'"), 'A/B test verifies the entered OTP')
-assert.ok(rlsHarness.includes('app_mfa_verified'), 'A/B test checks the refreshed token claim')
+assert.ok(passwordMigration.includes('private.password_authenticated_sessions'), 'password sessions are server-recorded')
+assert.ok(rlsHarness.includes('app_mfa_verified'), 'A/B test checks the password login token claim')
 
-console.log('Fail-closed defaults and MFA-aware RLS coverage verified')
+console.log('Fail-closed defaults and password-authenticated RLS coverage verified')

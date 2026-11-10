@@ -25,7 +25,8 @@ begin
     'authentication_method', 'password',
     'claims', jsonb_build_object('session_id', 'f4a2b7be-bc78-486a-973b-35f72d10c5a9', 'app_mfa_verified', true)
   ));
-  if (token_event -> 'claims') ? 'app_mfa_verified' then raise exception 'password auth retained a client MFA claim'; end if;
+  if token_event -> 'claims' ->> 'app_mfa_verified' <> 'true' then raise exception 'confirmed password session did not receive the app claim'; end if;
+  if not exists (select 1 from private.password_authenticated_sessions where session_id = 'f4a2b7be-bc78-486a-973b-35f72d10c5a9') then raise exception 'password session was not recorded'; end if;
 
   token_event := public.custom_access_token_hook(jsonb_build_object(
     'user_id', 'e3f0a3b8-6a9a-4f9b-8a31-5b921b53f998',
@@ -57,7 +58,7 @@ begin
     'authentication_method', 'token_refresh',
     'claims', jsonb_build_object('session_id', 'f4a2b7be-bc78-486a-973b-35f72d10c5a9')
   ));
-  if (token_event -> 'claims') ? 'app_mfa_verified' then raise exception 'unverified refresh received MFA claim'; end if;
+  if token_event -> 'claims' ->> 'app_mfa_verified' <> 'true' then raise exception 'password session refresh lost its app claim'; end if;
 end $$;
 
 do $$
@@ -141,6 +142,17 @@ begin
     'claims', jsonb_build_object('session_id', 'f4a2b7be-bc78-486a-973b-35f72d10c5aa')
   ));
   if (token_event -> 'claims') ? 'app_mfa_verified' then raise exception 'different session received MFA claim'; end if;
+
+  perform public.revoke_email_mfa_session(
+    'e3f0a3b8-6a9a-4f9b-8a31-5b921b53f998',
+    'f4a2b7be-bc78-486a-973b-35f72d10c5a9'
+  );
+  token_event := public.custom_access_token_hook(jsonb_build_object(
+    'user_id', 'e3f0a3b8-6a9a-4f9b-8a31-5b921b53f998',
+    'authentication_method', 'token_refresh',
+    'claims', jsonb_build_object('session_id', 'f4a2b7be-bc78-486a-973b-35f72d10c5a9')
+  ));
+  if (token_event -> 'claims') ? 'app_mfa_verified' then raise exception 'revoked session retained app claim'; end if;
 end $$;
 
 set local role authenticated;

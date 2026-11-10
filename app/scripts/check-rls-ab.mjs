@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile, readdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
-import { createInterface } from 'node:readline/promises'
-import { stdin, stdout } from 'node:process'
 import { createClient } from '@supabase/supabase-js'
 
 function parseEnv(text) {
@@ -61,14 +59,6 @@ const claimFrom = (accessToken) => {
   return payload ? JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) : {}
 }
 
-const otpFor = async (letter, email) => {
-  const configured = serverEnv[`SIAGA_TEST_OTP_${letter}`]
-  if (configured) return configured
-  const prompt = createInterface({ input: stdin, output: stdout })
-  try { return (await prompt.question(`Masukkan kode MFA untuk ${email}: `)).trim() }
-  finally { prompt.close() }
-}
-
 const clientFor = async ({ id, email, password }, letter) => {
   const client = createClient(serverEnv.SUPABASE_URL, appEnv.VITE_SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -78,21 +68,10 @@ const clientFor = async ({ id, email, password }, letter) => {
   assert.ok(data.session, 'fresh authenticated session exists')
   assert.equal(data.session.user.id, id, `${letter} login matches its configured test account`)
 
-  const unauthenticatedProfile = await client.from('profiles').select('id').eq('id', data.session.user.id)
-  assert.ifError(unauthenticatedProfile.error)
-  assert.equal(unauthenticatedProfile.data.length, 0, 'password-only session cannot read its profile')
-  assert.notEqual(claimFrom(data.session.access_token).app_mfa_verified, true, 'password login must not assert MFA')
-
-  const started = await client.functions.invoke('mfa-start', { method: 'POST' })
-  assert.ifError(started.error)
-  const code = await otpFor(letter, email)
-  assert.match(code, /^\d{6}$/, 'a six-digit email code is required')
-  const verified = await client.functions.invoke('mfa-verify', { body: { code } })
-  assert.ifError(verified.error)
-  assert.equal(verified.data?.verified, true, 'MFA code is accepted')
-  const refreshed = await client.auth.refreshSession()
-  assert.ifError(refreshed.error)
-  assert.equal(claimFrom(refreshed.data.session?.access_token).app_mfa_verified, true, 'refreshed session carries server MFA claim')
+  assert.equal(claimFrom(data.session.access_token).app_mfa_verified, true, 'confirmed password login receives the server app claim')
+  const ownProfile = await client.from('profiles').select('id').eq('id', data.session.user.id).single()
+  assert.ifError(ownProfile.error)
+  assert.equal(ownProfile.data.id, id, `${letter} password session can read its own profile`)
   return client
 }
 const clientA = await clientFor(a, 'A')
