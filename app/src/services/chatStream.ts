@@ -4,6 +4,7 @@ export type StreamChatPayload = {
   escalate?: unknown
   hasRedResult?: unknown
   verified?: unknown
+  diagnostics?: { requestId: string; timings: Record<string, number | null> }
 }
 
 export async function consumeChatStream(response: Response, onDelta: (text: string) => void): Promise<StreamChatPayload> {

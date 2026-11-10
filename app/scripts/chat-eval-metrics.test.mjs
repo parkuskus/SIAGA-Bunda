@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { summarizeChatEval } from '../src/services/chatEvalMetrics.ts'
+import { shouldStopChatEval, summarizeChatEval } from '../src/services/chatEvalMetrics.ts'
 
 assert.deepEqual(summarizeChatEval([
   { status: 'ok', firstOutputMs: 100 },
@@ -20,4 +20,7 @@ assert.deepEqual(summarizeChatEval([
   { status: 'failed', firstOutputMs: null },
 ]), { count: 2, failures: 1, medianMs: 50, p95Ms: 50 })
 assert.deepEqual(summarizeChatEval([]), { count: 0, failures: 0, medianMs: null, p95Ms: null })
+assert.equal(shouldStopChatEval('http_502', 402), true)
+assert.equal(shouldStopChatEval('http_502', 503), false)
+assert.equal(shouldStopChatEval('http_429', 402), false)
 console.log('Chat evaluation metrics cover median, p95, failures, and empty input')

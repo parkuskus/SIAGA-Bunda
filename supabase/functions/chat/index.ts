@@ -9,14 +9,21 @@ import { quickChatReply, retrievalTerms, shouldEscalate } from "../_shared/chatP
 import { buildExternalLlmMessages, chatAuthorizationHeaders } from "../_shared/chatContext.ts";
 import { ChatRequestError, minimizeExternalText, parseChatPayload, readBoundedJson, requireExternalConsent } from "../_shared/chatRequest.ts";
 import { hasMfaClaim } from "../_shared/emailMfa.ts";
+import { providerStreamEvent, providerStreamComplete } from "../_shared/chatProviderStream.ts";
+import { chatProviderOptions } from "../_shared/chatProviderOptions.ts";
+import { chatDiagnostics } from "../_shared/chatDiagnostics.ts";
 
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com/v1";
+const LLM_REASONING_EFFORT = Deno.env.get("LLM_REASONING_EFFORT");
+const CHAT_EVAL_DIAGNOSTICS = Deno.env.get("CHAT_EVAL_DIAGNOSTICS") === "true";
 const LLM_API_KEY = Deno.env.get("LLM_API_KEY") ?? "";
 const LLM_MODEL = Deno.env.get("LLM_MODEL") ?? "gpt-4o-mini";
 const EMBEDDING_MODEL = Deno.env.get("EMBEDDING_MODEL") ?? "text-embedding-3-small";
 // ponytail: header atribusi OpenRouter (opsional, diabaikan provider lain). Isi SITE_URL saat deploy.
 const SITE_URL = Deno.env.get("SITE_URL") ?? "";
 const APP_TITLE = Deno.env.get("APP_TITLE") ?? "SIAGA Bunda";
+const configuredMaxTokens = Number(Deno.env.get("LLM_MAX_TOKENS") ?? 480);
+const LLM_MAX_TOKENS = Number.isInteger(configuredMaxTokens) && configuredMaxTokens >= 1 && configuredMaxTokens <= 4096 ? configuredMaxTokens : 480;
 
 function llmHeaders(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json", Authorization: `Bearer ${LLM_API_KEY}` };
@@ -31,6 +38,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Expose-Headers": "X-Chat-Request-ID",
 };
 
 const SYSTEM_PROMPT = `Kamu Kira, bidan virtual SIAGA Bunda yang mendengarkan keluhan ibu dan membantu memberi informasi awal serta langkah selanjutnya. Kamu adalah asisten AI, bukan bidan atau dokter manusia dan tidak menggantikan pemeriksaan tenaga kesehatan. Berbicara dengan Bahasa Indonesia yang hangat, empatik, sederhana, dan tidak menggurui.
@@ -88,6 +96,7 @@ serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   try {
     const requestStarted = performance.now();
+    const requestId = crypto.randomUUID();
     const accessToken = req.headers.get("Authorization")?.match(/^Bearer\s+([^\s]+)$/i)?.[1];
     if (!accessToken) return Response.json({ error: "unauthorized" }, { status: 401, headers: corsHeaders });
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -104,6 +113,7 @@ serve(async (req) => {
     if (authErr || !user) return Response.json({ error: "unauthorized" }, { status: 401, headers: corsHeaders });
     const { data: { claims }, error: claimsErr } = await supabase.auth.getClaims(accessToken);
     if (claimsErr || !hasMfaClaim(claims)) return Response.json({ error: "mfa_required" }, { status: 403, headers: corsHeaders });
+    const authMs = Math.round(performance.now() - requestStarted);
 
     let body: ReturnType<typeof parseChatPayload>;
     try {
@@ -125,12 +135,14 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!serviceKey) return Response.json({ error: "chat rate limit unavailable" }, { status: 503, headers: corsHeaders });
     const rateLimitClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const rateStarted = performance.now();
     const { data: allowed, error: rateLimitError } = await rateLimitClient.rpc("consume_chat_rate_limit", { p_user_id: user.id });
     if (rateLimitError) {
       console.error("[chat] rate limit check failed");
       return Response.json({ error: "chat rate limit unavailable" }, { status: 503, headers: corsHeaders });
     }
     if (allowed !== true) return Response.json({ error: "batas penggunaan chat tercapai, coba lagi nanti" }, { status: 429, headers: { ...corsHeaders, "Retry-After": "600" } });
+    const rateMs = Math.round(performance.now() - rateStarted);
 
     // Only the opted-in message/history and retrieved public guideline content are sent to the LLM.
     const externalMessage = minimizeExternalText(message);
@@ -170,15 +182,29 @@ serve(async (req) => {
 
     // 3. panggil LLM (OpenAI-compatible: OpenAI / Gemini via OpenAI-endpoint / OpenRouter)
     const completionStarted = performance.now();
-    const llmRes = await fetch(`${LLM_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: llmHeaders(),
-      body: JSON.stringify({
-        model: LLM_MODEL, temperature: 0.2, max_tokens: 480, stream: true,
-        messages: buildExternalLlmMessages(SYSTEM_PROMPT, externalHistory, externalMessage, guideline),
-      }),
-    });
-    if (!llmRes.ok) throw new Error(`LLM gagal: ${llmRes.status}`);
+    let llmRes: Response;
+    try {
+      llmRes = await fetch(`${LLM_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: llmHeaders(),
+        body: JSON.stringify({
+          model: LLM_MODEL, temperature: 0.2, max_tokens: LLM_MAX_TOKENS, stream: true,
+          ...chatProviderOptions(LLM_BASE_URL, LLM_REASONING_EFFORT),
+          messages: buildExternalLlmMessages(SYSTEM_PROMPT, externalHistory, externalMessage, guideline),
+        }),
+      });
+    } catch {
+      const providerHeaderMs = Math.round(performance.now() - completionStarted);
+      const timings = { auth: authMs, rate: rateMs, embedding: embeddingMs, retrieval: retrievalMs, providerHeader: providerHeaderMs, firstToken: null, firstVisible: null, completion: null, persistence: null, total: Math.round(performance.now() - requestStarted) };
+      console.warn("[chat] provider request failed", { requestId, status: "network" });
+      return Response.json({ error: "layanan chat sementara tidak tersedia", ...chatDiagnostics(CHAT_EVAL_DIAGNOSTICS, requestId, timings, undefined, "network") }, { status: 502, headers: { ...corsHeaders, "X-Chat-Request-ID": requestId } });
+    }
+    const providerHeaderMs = Math.round(performance.now() - completionStarted);
+    if (!llmRes.ok) {
+      const timings = { auth: authMs, rate: rateMs, embedding: embeddingMs, retrieval: retrievalMs, providerHeader: providerHeaderMs, firstToken: null, firstVisible: null, completion: null, persistence: null, total: Math.round(performance.now() - requestStarted) };
+      console.warn("[chat] provider request failed", { requestId, status: llmRes.status });
+      return Response.json({ error: "layanan chat sementara tidak tersedia", ...chatDiagnostics(CHAT_EVAL_DIAGNOSTICS, requestId, timings, llmRes.status, "http") }, { status: 502, headers: { ...corsHeaders, "X-Chat-Request-ID": requestId } });
+    }
     const escalate = shouldEscalate(message, adaMerah);
     const reader = llmRes.body?.getReader();
     if (!reader) throw new Error("LLM tidak menyediakan stream jawaban");
@@ -190,15 +216,17 @@ serve(async (req) => {
         let answer = "";
         let firstTokenMs: number | null = null;
         let blocked = false;
+        let finish: string | null = null;
+        let providerDone = false;
+        let firstVisibleMs: number | null = null;
         const decoder = new TextDecoder();
         const send = (data: Record<string, unknown>) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         const processEvent = async (event: string) => {
-          const data = event.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
-          if (!data || data === "[DONE]") return;
-          let payload: { choices?: { delta?: { content?: unknown } }[] };
-          try { payload = JSON.parse(data); } catch { return; }
-          const delta = payload.choices?.[0]?.delta?.content;
-          if (typeof delta !== "string" || !delta) return;
+          const parsed = providerStreamEvent(event);
+          if (parsed.finish) finish = parsed.finish;
+          if (parsed.done) providerDone = true;
+          const delta = parsed.text;
+          if (!delta) return;
           if (firstTokenMs === null) firstTokenMs = Math.round(performance.now() - requestStarted);
           answer += delta;
           pending += delta;
@@ -210,6 +238,7 @@ serve(async (req) => {
           // Keep a safety window large enough to catch internal-marker prefixes before sending them.
           if (pending.length > SAFE_STREAM_BUFFER) {
             const safeLength = pending.length - SAFE_STREAM_BUFFER;
+            firstVisibleMs ??= Math.round(performance.now() - requestStarted);
             send({ type: "delta", text: pending.slice(0, safeLength) });
             pending = pending.slice(safeLength);
           }
@@ -235,13 +264,19 @@ serve(async (req) => {
             controller.close();
             return;
           }
+          if (!providerStreamComplete(finish, providerDone)) {
+            console.warn("[chat] incomplete provider response", { requestId, finish: finish === "length" ? "length" : "other" });
+            send({ type: "error", message: "Jawaban belum lengkap. Silakan coba lagi." });
+            controller.close();
+            return;
+          }
           answer = answer.trim();
           if (!answer || INTERNAL_REASONING.test(answer) || SAFETY_METADATA.test(answer)) {
             send({ type: "done", answer: JAWABAN_KEAMANAN, sources: [], verified: false, escalate, hasRedResult: adaMerah });
             controller.close();
             return;
           }
-          if (pending) send({ type: "delta", text: pending });
+          if (pending) { firstVisibleMs ??= Math.round(performance.now() - requestStarted); send({ type: "delta", text: pending }); }
           const completionMs = Math.round(performance.now() - completionStarted);
           // Chat history is best-effort and must not block the streamed reply.
           const persistenceStarted = performance.now();
@@ -250,8 +285,9 @@ serve(async (req) => {
             { user_id: user.id, role: "assistant", content: answer, sources },
           ]).then(({ error }) => { if (error) console.warn("[chat] history save failed"); });
           const persistenceMs = Math.round(performance.now() - persistenceStarted);
-          console.info("[chat] timing_ms", { embedding: embeddingMs, retrieval: retrievalMs, firstToken: firstTokenMs, completion: completionMs, persistence: persistenceMs, total: Math.round(performance.now() - requestStarted) });
-          send({ type: "done", answer, sources, verified, escalate, hasRedResult: adaMerah });
+          const timings = { auth: authMs, rate: rateMs, embedding: embeddingMs, retrieval: retrievalMs, providerHeader: providerHeaderMs, firstToken: firstTokenMs, firstVisible: firstVisibleMs, completion: completionMs, persistence: persistenceMs, total: Math.round(performance.now() - requestStarted) };
+          console.info("[chat] timing_ms", { requestId, ...timings });
+          send({ type: "done", answer, sources, verified, escalate, hasRedResult: adaMerah, ...chatDiagnostics(CHAT_EVAL_DIAGNOSTICS, requestId, timings) });
           controller.close();
         } catch {
           console.error("[chat] streaming failed");
@@ -259,7 +295,7 @@ serve(async (req) => {
         }
       },
     });
-    return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" } });
+    return new Response(stream, { headers: { ...corsHeaders, "X-Chat-Request-ID": requestId, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" } });
   } catch {
     console.error("[chat] request failed");
     return Response.json({ error: "chat gagal, coba lagi / hubungi bidan" }, { status: 500, headers: corsHeaders });

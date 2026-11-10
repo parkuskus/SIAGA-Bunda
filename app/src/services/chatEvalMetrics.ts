@@ -1,5 +1,14 @@
 type ChatEvalSample = { status: string; firstOutputMs: number | null }
 
+export function formatChatEvalDuration(durationMs: number | null): string | null {
+  if (durationMs === null) return null
+  return durationMs >= 1000 ? `${(durationMs / 1000).toFixed(3)} s` : `${durationMs} ms`
+}
+
+export function shouldStopChatEval(status: string, upstreamStatus: number | null): boolean {
+  return status === 'http_502' && upstreamStatus === 402
+}
+
 export function summarizeChatEval(samples: ChatEvalSample[]) {
   const durations = samples
     .filter((sample) => sample.status === 'ok' && Number.isFinite(sample.firstOutputMs))
