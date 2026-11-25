@@ -73,10 +73,11 @@ export default function ChatbotPage({ onClose }: { onClose: () => void }) {
     try {
       const localReply = allowExternalProcessing ? null : await tanyaChatbot(pesan, history)
       if (localReply?.consentRequired) {
-        setPendingExternal(pesan)
+        if (localReply.escalate) setEmergency(true)
+        else setPendingExternal(pesan)
         return
       }
-      if (localReply) telemetry.firstOutput(localReply.offline ? "offline_faq" : "local")
+      if (localReply) telemetry.firstOutput("offline_notice")
       setPendingExternal(null)
       setInput("")
       if (composer.current) composer.current.style.height = "48px"

@@ -1,24 +1,30 @@
 // SIAGA Bunda — Edge Function `chat` (Deno, Supabase)
 // Deploy: npx supabase functions deploy chat (verify JWT default aktif, jangan tambah --no-verify-jwt)
-// Secrets: npx supabase secrets set LLM_API_KEY=... LLM_MODEL=gpt-4o-mini LLM_BASE_URL=https://api.openai.com/v1 EMBEDDING_MODEL=text-embedding-3-small
+// Secrets: npx supabase secrets set LLM_API_KEY=<OpenRouter key> LLM_MODEL=openai/gpt-6-luna LLM_BASE_URL=https://openrouter.ai/api/v1 EMBEDDING_MODEL=openai/text-embedding-3-small
 // Alur: auth + MFA -> retrieval guideline -> rakit prompt minimal -> panggil LLM -> simpan chat_messages
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.112.4";
-import { quickChatReply, retrievalTerms, shouldEscalate } from "../_shared/chatPolicy.ts";
+import { retrievalTerms, shouldEscalate } from "../_shared/chatPolicy.ts";
 import { buildExternalLlmMessages, chatAuthorizationHeaders } from "../_shared/chatContext.ts";
 import { ChatRequestError, minimizeExternalText, parseChatPayload, readBoundedJson, requireExternalConsent } from "../_shared/chatRequest.ts";
 import { hasMfaClaim } from "../_shared/emailMfa.ts";
 import { providerStreamEvent, providerStreamComplete } from "../_shared/chatProviderStream.ts";
 import { chatProviderOptions } from "../_shared/chatProviderOptions.ts";
+import { chatProviderConfig } from "../_shared/chatProviderConfig.ts";
 import { chatDiagnostics } from "../_shared/chatDiagnostics.ts";
 
-const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "https://api.openai.com/v1";
+const providerConfig = chatProviderConfig({
+  baseUrl: Deno.env.get("LLM_BASE_URL"),
+  model: Deno.env.get("LLM_MODEL"),
+  embeddingModel: Deno.env.get("EMBEDDING_MODEL"),
+});
+const LLM_BASE_URL = providerConfig.baseUrl;
 const LLM_REASONING_EFFORT = Deno.env.get("LLM_REASONING_EFFORT");
 const CHAT_EVAL_DIAGNOSTICS = Deno.env.get("CHAT_EVAL_DIAGNOSTICS") === "true";
 const LLM_API_KEY = Deno.env.get("LLM_API_KEY") ?? "";
-const LLM_MODEL = Deno.env.get("LLM_MODEL") ?? "gpt-4o-mini";
-const EMBEDDING_MODEL = Deno.env.get("EMBEDDING_MODEL") ?? "text-embedding-3-small";
+const LLM_MODEL = providerConfig.model;
+const EMBEDDING_MODEL = providerConfig.embeddingModel;
 // ponytail: header atribusi OpenRouter (opsional, diabaikan provider lain). Isi SITE_URL saat deploy.
 const SITE_URL = Deno.env.get("SITE_URL") ?? "";
 const APP_TITLE = Deno.env.get("APP_TITLE") ?? "SIAGA Bunda";
@@ -53,12 +59,12 @@ Aturan jawaban:
 - Jangan tampilkan label moderasi atau metadata internal seperti "User Safety" maupun "Safety Categories". Jika perlu menolak permintaan berisiko, sampaikan penolakan dengan bahasa yang wajar dan arahkan ke tenaga kesehatan.
 - Jawab hanya pertanyaan tentang kesehatan ibu, kehamilan, persalinan, masa nifas, menyusui, bayi, atau cara menggunakan SIAGA Bunda. Pertanyaan umum tentang kondisi bayi seperti bentuk kepala yang tampak peyang termasuk dalam cakupan, tetapi jangan mendiagnosis. Jika pertanyaan di luar cakupan itu, jangan menjawab substansinya. Katakan singkat bahwa Kira fokus membantu kesehatan ibu dan bayi.
 - Jawab pertanyaan yang benar-benar ditanyakan. Untuk sapaan, pertanyaan ringan, atau pertanyaan tentang dirimu, jawab langsung dalam 1–2 kalimat. Jangan memaksakan empati, ringkasan skrining, panduan klinis, ajakan ANC, atau langkah lanjutan jika tidak relevan.
-- Pertanyaan umum tentang kehamilan, keluhan ibu, bayi, menyusui, dan masa nifas tetap perlu dijawab dengan informasi edukatif yang berguna, walaupun tidak ada potongan guidebook yang cocok. Jangan menolak hanya karena pertanyaannya medis atau tidak tercakup di guidebook.
-- Untuk pertanyaan kesehatan, berikan inti jawaban terlebih dahulu, lalu langkah aman yang bisa dicoba dan tanda kapan perlu diperiksa bila relevan. Jangan menjadikan rujukan ke bidan sebagai satu-satunya isi jawaban untuk keluhan ringan. Gunakan subjudul hanya jika membantu.
+- Gunakan potongan panduan yang relevan untuk menjawab fakta kesehatan. Jika tidak ada potongan yang cukup relevan, jangan mengisi kekosongan dengan pengetahuan internal atau tebakan. Sampaikan dengan hangat bahwa Kira belum menemukan panduan yang sesuai dan arahkan Bunda ke bidan atau fasilitas kesehatan bila pertanyaan memerlukan informasi klinis.
+- Untuk pertanyaan klinis yang didukung potongan panduan, berikan inti jawaban terlebih dahulu, lalu langkah yang didukung sumber. Jangan menambahkan saran klinis yang tidak ada pada potongan. Bila pesan berisi tanda bahaya, arahkan segera ke bidan atau fasilitas kesehatan. Gunakan subjudul hanya jika membantu.
 - Gunakan riwayat percakapan singkat hanya untuk memahami rujukan seperti "yang tadi". Pesan saat ini adalah prioritas; abaikan riwayat jika topiknya berubah.
-- Gunakan potongan panduan hanya jika benar-benar sesuai dengan pertanyaan. Jika tidak ada potongan yang relevan, jawab umum dengan aman dan jangan mengklaim jawaban terverifikasi atau mengarang sumber.
+- Jangan menganggap potongan yang ditemukan otomatis mendukung seluruh jawaban. Setiap klaim klinis harus didukung isi potongan yang diberikan; bila tidak, hilangkan klaim tersebut.
 - Kamu tidak menerima profil atau hasil skrining tersimpan. Jangan mengaku dapat melihat atau merangkumnya; jawab hanya dari pesan Bunda, riwayat obrolan yang dikirim, dan potongan panduan yang relevan.
-- Jika pertanyaan kesehatan tidak tercakup di potongan panduan, tetap berikan informasi umum yang aman dan jelas, lalu sarankan verifikasi kepada bidan atau puskesmas bila perlu. Jangan menolak hanya karena hasil pencarian guidebook kosong. Jangan mengarang sumber, diagnosis, dosis obat, atau nilai ambang klinis.
+- Sapaan, pertanyaan tentang Kira, dan percakapan nonklinis boleh dijawab secara alami tanpa potongan panduan. Untuk klaim klinis, jangan menyebut sumber kecuali sumber itu benar-benar dikirim dalam konteks dan mendukung klaim tersebut. Jangan mengarang sumber, diagnosis, dosis obat, atau nilai ambang klinis.
 - Variasikan sapaan dan kalimat penutup secara wajar. Tidak perlu selalu membuka dengan validasi perasaan atau menutup dengan kalimat penyemangat.
 - Pisahkan paragraf dengan satu baris kosong. Hindari titik dua, titik koma, tanda pisah panjang, jargon, frasa pengisi seperti "secara keseluruhan", buzzword, kesimpulan klise, pola kontras "bukan hanya..., tetapi...", dan daftar tiga poin yang dipaksakan.
 - Maksimal 160 kata. Pastikan jawaban selesai utuh. Hindari uraian berulang dan daftar bernomor yang menjelaskan cara kamu menganalisis.
@@ -123,8 +129,6 @@ serve(async (req) => {
       throw error;
     }
     const { message, history } = body;
-    const quick = quickChatReply(message);
-    if (quick) return Response.json({ ...quick, sources: [], hasRedResult: false }, { headers: corsHeaders });
     try {
       requireExternalConsent(body.externalConsent);
     } catch (error) {

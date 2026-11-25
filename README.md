@@ -18,7 +18,7 @@ The app combines screening, educational materials, reminders, and health trackin
 - Supabase account authentication and email verification
 - PDF screening summaries for sharing with a midwife
 - Web push reminders on supported browsers and devices
-- Chat assistant with a local FAQ fallback
+- Chat assistant with AI responses grounded in relevant health guidance
 
 ## Project Structure
 

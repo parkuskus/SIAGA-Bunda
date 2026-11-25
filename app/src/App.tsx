@@ -9,6 +9,8 @@ import { db } from "@/data/db"
 import { getCurrentUserId } from "@/data/currentUser"
 import SyncStatusNotice from "@/features/sync/SyncStatusNotice"
 import type { ResultEducationTopic } from "@/features/edukasi/resultTopics"
+import WelcomeWalkthrough from "@/features/onboarding/WelcomeWalkthrough"
+import { markWalkthroughSeen, shouldShowWalkthrough } from "@/features/onboarding/walkthroughState"
 
 const BerandaPage = lazy(() => import("@/features/beranda/BerandaPage"))
 const SkriningPage = lazy(() => import("@/features/skrining/SkriningPage"))
@@ -33,7 +35,10 @@ export default function App() {
   const [showChat, setShowChat] = useState(false)
   const [openMentalFromEdu, setOpenMentalFromEdu] = useState(false)
   const [educationTopic, setEducationTopic] = useState<ResultEducationTopic | null>(null)
+  const [educationScreen, setEducationScreen] = useState<"janin" | null>(null)
   const [onboarding, setOnboarding] = useState<Onboarding>("splash")
+  const [walkthroughUserId, setWalkthroughUserId] = useState<string | null>(null)
+  const [walkthroughOpen, setWalkthroughOpen] = useState(false)
   const [showBottomNav, setShowBottomNav] = useState(true)
 
   const enterApp = useCallback(() => {
@@ -47,6 +52,30 @@ export default function App() {
     setTab("edukasi")
   }, [])
   const consumeEducationTopic = useCallback(() => setEducationTopic(null), [])
+  const openFetalEducation = useCallback(() => {
+    setEducationScreen("janin")
+    setTab("edukasi")
+  }, [])
+  const consumeEducationScreen = useCallback(() => setEducationScreen(null), [])
+
+  useEffect(() => {
+    let active = true
+    if (onboarding !== "app") {
+      setWalkthroughUserId(null)
+      setWalkthroughOpen(false)
+    } else {
+      void getCurrentUserId().then((userId) => {
+        if (!active) return
+        setWalkthroughUserId(userId)
+        try {
+          setWalkthroughOpen(shouldShowWalkthrough(userId, localStorage))
+        } catch {
+          setWalkthroughOpen(true)
+        }
+      })
+    }
+    return () => { active = false }
+  }, [onboarding])
 
   useEffect(() => {
     const {
@@ -77,6 +106,8 @@ export default function App() {
       }
       if (event === "SIGNED_OUT") {
         try { localStorage.setItem("siaga_logged_out", "true") } catch { /* Auth tetap keluar meski penanda lokal gagal. */ }
+        setWalkthroughUserId(null)
+        setWalkthroughOpen(false)
         setOnboarding("splash")
       }
     })
@@ -143,10 +174,11 @@ export default function App() {
               setShowBirth={setShowBirth}
               setTab={setTab}
               setShowBottomNav={setShowBottomNav}
+              onOpenFetalEducation={openFetalEducation}
             />
           )}
           {tab === "skrining" && <SkriningPage setTab={setTab} setShowBirth={setShowBirth} isPostpartum={isPostpartum} setShowBottomNav={setShowBottomNav} initialForm={openMentalFromEdu ? "mental" : null} onInitialFormConsumed={consumeMentalDeepLink} onOpenEducationTopic={openEducationTopic} onOpenChat={() => setShowChat(true)} />}
-          {tab === "edukasi" && <EdukasiPage isPostpartum={isPostpartum} initialTopic={educationTopic} onTopicConsumed={consumeEducationTopic} onOpenSkriningMental={() => { if (isPostpartum) return; setOpenMentalFromEdu(true); setTab("skrining") }} />}
+          {tab === "edukasi" && <EdukasiPage isPostpartum={isPostpartum} initialTopic={educationTopic} initialScreen={educationScreen} onTopicConsumed={consumeEducationTopic} onScreenConsumed={consumeEducationScreen} onOpenSkriningMental={() => { if (isPostpartum) return; setOpenMentalFromEdu(true); setTab("skrining") }} />}
           {tab === "tracker" && <PengingatPage setShowBottomNav={setShowBottomNav} />}
           {tab === "profil" && <ProfilPage uk={uk} hplLabel={hplLabel} setShowBottomNav={setShowBottomNav} />}
         </div>
@@ -188,6 +220,10 @@ export default function App() {
           setTab("beranda")
         }}
       />
+      {walkthroughUserId && <WelcomeWalkthrough open={walkthroughOpen} isPostpartum={isPostpartum} activeTab={tab} onNavigate={setTab} onFinish={() => {
+        try { markWalkthroughSeen(walkthroughUserId, localStorage) } catch { /* Akses storage mungkin dibatasi browser. */ }
+        setWalkthroughOpen(false)
+      }} />}
     </div>
     </Suspense>
   )

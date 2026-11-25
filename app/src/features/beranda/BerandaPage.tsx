@@ -12,6 +12,7 @@ import QuickActionGrid from "./components/QuickActionGrid"
 import LastCheckCard from "./components/LastCheckCard"
 import TodayReminderCard from "./components/TodayReminderCard"
 import ProfileAvatar from "@/features/profil/ProfileAvatar"
+import FetalDevelopmentCard from "./components/FetalDevelopmentCard"
 import BirthPlanScreen from "./BirthPlanScreen"
 import { daysUntil, medicineTimes, normalizeTime } from "../../../../supabase/functions/_shared/reminderSchedule"
 
@@ -24,6 +25,7 @@ type Props = {
   setShowBirth: (v: boolean) => void
   setTab: (t: "beranda" | "skrining" | "edukasi" | "tracker" | "profil") => void
   setShowBottomNav: (visible: boolean) => void
+  onOpenFetalEducation: () => void
 }
 
 function formatHpl(hpht: string): string {
@@ -35,7 +37,7 @@ function hariIniLabel(): string {
 }
 
 // S-02 Beranda — stage sage + hero illu-12 + sheet (ikut Figma 23:1098)
-export default function BerandaPage({ uk: ukProp, progress: progressProp, countdown: countdownProp, isPostpartum, setIsPostpartum, setShowBirth, setTab, setShowBottomNav }: Props) {
+export default function BerandaPage({ uk: ukProp, progress: progressProp, countdown: countdownProp, isPostpartum, setIsPostpartum, setShowBirth, setTab, setShowBottomNav, onOpenFetalEducation }: Props) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [hariNifas, setHariNifas] = useState(1)
   const [beratLahir, setBeratLahir] = useState<number | null>(null)
@@ -131,7 +133,7 @@ export default function BerandaPage({ uk: ukProp, progress: progressProp, countd
 
   return (
     <div>
-      <div className="-mx-4 -mt-5 rounded-b-[32px] bg-[#4A6E54] px-6 pb-6 pt-7 text-white">
+      <div data-tour="home-header" className="-mx-4 -mt-5 rounded-b-[32px] bg-[#4A6E54] px-6 pb-6 pt-7 text-white">
         <div className="flex items-center gap-2.5">
           <p className="flex-1 text-xl font-bold">SIAGA Bunda</p>
           <button onClick={() => setShowReminders(true)} aria-label={`Notifikasi pengingat, ${reminderCount} jadwal`} className="relative grid size-11 shrink-0 place-items-center rounded-full bg-white text-[#4A6E54] transition-transform active:scale-95">
@@ -152,7 +154,14 @@ export default function BerandaPage({ uk: ukProp, progress: progressProp, countd
       </div>
 
       <div className="space-y-3.5 pb-6 pt-5">
-        <div className="mt-1">
+        {!isPostpartum && (
+          <FetalDevelopmentCard
+            gestationalWeek={profile && hpht && Number.isFinite(weeksFromHpht(hpht)) ? weeksFromHpht(hpht) : null}
+            onOpenEducation={onOpenFetalEducation}
+            onOpenProfile={() => setTab("profil")}
+          />
+        )}
+        <div data-tour="pregnancy-summary" className="mt-1">
           <ProfileCard
             isPostpartum={isPostpartum}
             hariNifas={hariNifas}
@@ -167,12 +176,14 @@ export default function BerandaPage({ uk: ukProp, progress: progressProp, countd
             onBackToPregnant={() => setConfirmBackToPregnant(true)}
           />
         </div>
-        <QuickActionGrid
-          onSkrining={() => setTab("skrining")}
-          onCatatBB={() => setTab("tracker")}
-          onReminder={() => setTab("tracker")}
-          onEdukasi={() => setTab("edukasi")}
-        />
+        <div data-tour="quick-actions">
+          <QuickActionGrid
+            onSkrining={() => setTab("skrining")}
+            onCatatBB={() => setTab("tracker")}
+            onReminder={() => setTab("tracker")}
+            onEdukasi={() => setTab("edukasi")}
+          />
+        </div>
         {!isPostpartum && <button onClick={() => { void getCurrentUserId().then((id) => { setBirthPlanUserId(id); setShowBirthPlan(true) }) }} className="flex w-full items-center gap-3 rounded-[24px] bg-white p-4 text-left ring-1 ring-[#D9E7E2] transition active:scale-[0.99]">
           <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[#FFF1E8] text-[#9A5B00]"><ClipboardList className="size-6" /></span>
           <span className="min-w-0 flex-1">
@@ -182,7 +193,9 @@ export default function BerandaPage({ uk: ukProp, progress: progressProp, countd
           <ChevronRight className="size-5 shrink-0 text-[#536961]" />
         </button>}
         <p className="text-[15px] font-bold py-2 text-[#1D2B29]">Skrining Kesehatan</p>
-        <LastCheckCard label={lastLabel} dateLabel={lastDate} kategori={last && needsRepeat(last) && last.kategori !== "MERAH" ? "PERLU_ULANG" : last?.kategori} onLihat={() => setTab("skrining")} />
+        <div data-tour="last-check">
+          <LastCheckCard label={lastLabel} dateLabel={lastDate} kategori={last && needsRepeat(last) && last.kategori !== "MERAH" ? "PERLU_ULANG" : last?.kategori} onLihat={() => setTab("skrining")} />
+        </div>
         <button onClick={() => setTab("tracker")} className="flex w-full items-center gap-3 rounded-[24px] bg-white p-4 text-left ring-2 ring-[#FFCFCF] active:scale-[0.99] transition">
           <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[#FFE2E2] text-[#DB2777]"><Smile className="size-7" /></span>
           <span className="min-w-0 flex-1">

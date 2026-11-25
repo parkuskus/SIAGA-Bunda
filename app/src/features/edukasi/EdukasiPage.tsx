@@ -10,12 +10,16 @@ import ImdScreen from "./ImdScreen"
 import TandaPersalinanScreen from "./TandaPersalinanScreen"
 import type { ResultEducationTopic } from "./resultTopics"
 
-export default function EdukasiPage({ onOpenSkriningMental, isPostpartum, initialTopic = null, onTopicConsumed }: { onOpenSkriningMental: () => void; isPostpartum: boolean; initialTopic?: ResultEducationTopic | null; onTopicConsumed: () => void }) {
-  const [screen, setScreen] = useState<"menu" | "fertilisasi" | "janin" | "s06c" | "fisiologi" | "bahaya" | "psikologi" | "imd" | "persalinan">(() => initialTopic ?? "menu")
+export default function EdukasiPage({ onOpenSkriningMental, isPostpartum, initialTopic = null, initialScreen = null, onTopicConsumed, onScreenConsumed }: { onOpenSkriningMental: () => void; isPostpartum: boolean; initialTopic?: ResultEducationTopic | null; initialScreen?: "janin" | null; onTopicConsumed: () => void; onScreenConsumed: () => void }) {
+  const [screen, setScreen] = useState<"menu" | "fertilisasi" | "janin" | "s06c" | "fisiologi" | "bahaya" | "psikologi" | "imd" | "persalinan">(() => initialScreen ?? initialTopic ?? "menu")
 
   useEffect(() => {
     if (initialTopic) onTopicConsumed()
   }, [initialTopic, onTopicConsumed])
+
+  useEffect(() => {
+    if (initialScreen) onScreenConsumed()
+  }, [initialScreen, onScreenConsumed])
 
   if (screen === "fertilisasi") {
     return <FertilisasiScreen onBack={() => setScreen("menu")} />

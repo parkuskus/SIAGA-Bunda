@@ -1,27 +1,16 @@
 import { supabase } from "@/data/supabase"
-import { FAQ, JAWABAN_BINGUNG, JAWABAN_KEAMANAN, JAWABAN_OFFLINE } from "@/features/chatbot/personality"
+import { JAWABAN_KEAMANAN, JAWABAN_OFFLINE } from "@/features/chatbot/personality"
 import { consumeChatStream, type StreamChatPayload } from "@/services/chatStream"
 import { db } from "@/data/db"
 import { getCurrentUserId } from "@/data/currentUser"
 import { requiresExternalChatConsent } from "@/services/chatPrivacy"
-import { quickChatReply, shouldEscalate } from "../../../supabase/functions/_shared/chatPolicy"
+import { shouldEscalate } from "../../../supabase/functions/_shared/chatPolicy"
 
-// ponytail: client tipis — online -> Edge Function `chat`, offline -> FAQ hangat lokal. API key tidak pernah di sini.
+// ponytail: all online answers use Edge Function `chat`; offline only shows a connection notice.
 
 export type ChatReply = { answer: string; sources: string[]; escalate: boolean; offline: boolean; verified: boolean; consentRequired?: boolean }
 export type ChatTurn = { role: "user" | "assistant"; content: string }
 type ChatResponse = StreamChatPayload
-
-const normalisasiKata = (teks: string) => ` ${teks.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `
-
-function jawabOffline(pesan: string): { answer: string; verified: boolean } {
-  const p = normalisasiKata(pesan)
-  for (const f of FAQ) {
-    if (f.kunci.some((k) => p.includes(normalisasiKata(k)))) return { answer: f.jawab, verified: f.terverifikasiAhli === true }
-  }
-  if (typeof navigator !== "undefined" && !navigator.onLine) return { answer: JAWABAN_OFFLINE, verified: false }
-  return { answer: JAWABAN_BINGUNG, verified: false }
-}
 
 async function adaHasilMerahLokal() {
   try {
@@ -34,11 +23,6 @@ async function adaHasilMerahLokal() {
   } catch {
     return false
   }
-}
-
-function jawabFAQ(pesan: string) {
-  const p = normalisasiKata(pesan)
-  return FAQ.find((item) => item.kunci.some((key) => p.includes(normalisasiKata(key))))
 }
 
 const berisiProsesInternal = /(?:^|\n)\s*(?:here['’]s a thinking process|let me think step by step|thinking process:|chain[- ]of[- ]thought|analyze user input:|identify the core question(?:\/intent)?:|check rules?\s*&\s*constraints:|(?:step|langkah)\s*\d+[.)]\s*(?:analyze|identify|check|analisis|periksa)|<think>|<analysis>)/i
@@ -70,20 +54,13 @@ export async function tanyaChatbot(pesan: string, history: ChatTurn[] = [], onDe
   const teks = pesan.trim()
   if (!teks) throw new Error("pesan kosong")
   const offline = typeof navigator !== "undefined" && !navigator.onLine
-  const quick = quickChatReply(teks)
-  if (quick) return { ...quick, sources: [], offline }
-
-  const faq = jawabFAQ(teks)
-  if (faq) return { answer: faq.jawab, sources: [], escalate: shouldEscalate(teks), offline, verified: faq.terverifikasiAhli === true }
-
-  // offline -> FAQ lokal, tidak pernah gagal
-  if (offline) {
-    const local = jawabOffline(teks)
-    const hasRedResult = await adaHasilMerahLokal()
-    return { answer: local.answer, sources: [], escalate: shouldEscalate(teks, hasRedResult), offline: true, verified: local.verified }
-  }
   if (requiresExternalChatConsent(!offline, allowExternalProcessing)) {
-    return { answer: "", sources: [], escalate: false, offline: false, verified: false, consentRequired: true }
+    const hasRedResult = await adaHasilMerahLokal()
+    return { answer: "", sources: [], escalate: shouldEscalate(teks, hasRedResult), offline: false, verified: false, consentRequired: true }
+  }
+  if (offline) {
+    const hasRedResult = await adaHasilMerahLokal()
+    return { answer: JAWABAN_OFFLINE, sources: [], escalate: shouldEscalate(teks, hasRedResult), offline: true, verified: false }
   }
   try {
     const recentHistory = history.slice(-6).map((turn) => ({ role: turn.role, content: turn.content.slice(0, 1000) }))
@@ -94,10 +71,9 @@ export async function tanyaChatbot(pesan: string, history: ChatTurn[] = [], onDe
     if (berisiLabelKeamanan.test(answer)) return { answer: JAWABAN_KEAMANAN, sources: [], escalate: shouldEscalate(teks, data.hasRedResult === true), offline: false, verified: false }
     return { answer, sources: (data.sources as string[]) ?? [], escalate: shouldEscalate(teks, data.hasRedResult === true) || data.escalate === true, offline: false, verified: data.verified === true }
   } catch {
-    // online gagal (Edge Function belum deploy / belum login) -> fallback lokal biar UX tidak mati
-    console.warn("[kira] layanan daring gagal, memakai FAQ lokal")
-    const local = jawabOffline(teks)
+    // No local health answers when the provider is unavailable.
+    console.warn("[kira] layanan daring gagal")
     const hasRedResult = await adaHasilMerahLokal()
-    return { answer: local.answer, sources: [], escalate: shouldEscalate(teks, hasRedResult), offline: true, verified: local.verified }
+    return { answer: JAWABAN_OFFLINE, sources: [], escalate: shouldEscalate(teks, hasRedResult), offline: true, verified: false }
   }
 }

@@ -4,24 +4,23 @@
 
 ## Gambaran singkat
 
-Kira bukan satu model AI yang melakukan semuanya. Sistemnya menggabungkan aturan deterministik, FAQ lokal, pencarian panduan kesehatan, dan LLM. Ini pola yang bagus untuk dipelajari karena banyak AI Engineering justru berkaitan dengan merancang sistem di sekitar model, bukan sekadar memanggil API.
+Kira memakai LLM untuk menjawab pesan online, dengan potongan panduan kesehatan dari RAG bila relevan. Aturan deterministik tetap menangani eskalasi darurat dan perlindungan request; saat offline atau layanan gagal, aplikasi hanya menampilkan pemberitahuan koneksi, bukan jawaban kesehatan lokal.
 
 ```text
 ChatbotPage (UI)
       │
       ▼
 tanyaChatbot (router dan kebijakan)
-      ├── salam / tanda bahaya → jawaban aturan langsung
-      ├── topik FAQ cocok       → jawaban lokal
-      ├── offline               → fallback lokal
-      └── online + izin         → Supabase Edge Function
-                                      │
-                                      ├── autentikasi dan validasi
-                                      ├── samarkan email / nomor telepon
-                                      ├── cari potongan panduan (RAG)
-                                      ├── panggil LLM
-                                      ├── stream jawaban ke UI
-                                      └── simpan percakapan online
+       ├── offline               → pemberitahuan koneksi
+       ├── online tanpa izin     → minta persetujuan
+       └── online + izin         → Supabase Edge Function
+                                       │
+                                       ├── autentikasi dan validasi
+                                       ├── samarkan email / nomor telepon
+                                       ├── cari potongan panduan (RAG)
+                                       ├── panggil LLM untuk semua pesan
+                                       ├── stream jawaban ke UI
+                                       └── simpan percakapan online
 ```
 
 ## Komponen utama
@@ -29,11 +28,11 @@ tanyaChatbot (router dan kebijakan)
 | Komponen | Tanggung jawab |
 |---|---|
 | `app/src/features/chatbot/ChatbotPage.tsx` | UI chat, state percakapan di sesi berjalan, persetujuan AI eksternal, tampilan stream, dan overlay darurat. |
-| `app/src/features/chatbot/personality.ts` | Persona Kira, sapaan, FAQ lokal, dan jawaban fallback. |
-| `app/src/services/chatService.ts` | Router antara aturan lokal, FAQ, mode offline, dan layanan online. |
+| `app/src/features/chatbot/personality.ts` | Persona Kira, sapaan awal, dan teks pemberitahuan koneksi. |
+| `app/src/services/chatService.ts` | Persetujuan eksternal, pemeriksaan koneksi, dan pemanggilan layanan online. |
 | `app/src/services/chatStream.ts` | Membaca event stream dari Edge Function dan meneruskan potongan jawaban ke UI. |
 | `supabase/functions/chat/index.ts` | Validasi server, retrieval panduan, pemanggilan LLM, penyaringan output, streaming, dan penyimpanan pesan online. |
-| `supabase/functions/_shared/chatPolicy.ts` | Aturan jawaban cepat, deteksi tanda bahaya, eskalasi, dan istilah pencarian. |
+| `supabase/functions/_shared/chatPolicy.ts` | Deteksi tanda bahaya, eskalasi, dan istilah pencarian. |
 | `supabase/functions/_shared/chatRequest.ts` | Batas ukuran request, validasi pesan dan riwayat, penyamaran email/nomor telepon, dan validasi izin. |
 | `supabase/functions/_shared/chatContext.ts` | Merakit pesan system, riwayat, pertanyaan terbaru, dan potongan panduan untuk LLM. |
 
@@ -47,12 +46,12 @@ tanyaChatbot (router dan kebijakan)
 
 `chatService.ts` memeriksa pesan secara berurutan:
 
-1. Aturan cepat di `chatPolicy.ts` menangani sapaan dan sebagian tanda bahaya.
-2. Jika kata kunci cocok dengan FAQ, jawaban lokal digunakan.
-3. Jika perangkat offline, Kira memakai FAQ atau pesan fallback.
-4. Jika membutuhkan jawaban online, pengguna perlu memberi izin pemrosesan eksternal.
+1. Jika perangkat offline, aplikasi menampilkan pemberitahuan koneksi tanpa memberi jawaban kesehatan.
+2. Untuk pesan online, pengguna perlu memberi izin pemrosesan eksternal.
+3. Setelah izin diberikan, setiap pesan dikirim ke Edge Function dan model.
+4. Deteksi tanda bahaya tetap berjalan untuk membuka overlay darurat, termasuk jika pengguna belum menyetujui pengiriman pesan.
 
-Dengan begitu, sebagian pesan tidak memerlukan pemanggilan model sama sekali.
+Tidak ada FAQ lokal atau jawaban cepat untuk pesan pengguna.
 
 ### 3. Edge Function menjadi gerbang layanan AI
 
@@ -70,7 +69,7 @@ API key model berada di secret server dan tidak ditaruh di aplikasi klien.
 
 Edge Function membuat embedding dari pesan, lalu mencari potongan panduan melalui fungsi database `match_guideline_hybrid`. Pencarian ini hybrid: menggabungkan kemiripan vektor dan kecocokan kata. Potongan yang memenuhi ambang relevansi dipilih, maksimal empat potongan, kemudian dibatasi panjangnya.
 
-Jika embedding atau retrieval gagal, kode dapat melanjutkan tanpa konteks panduan. Jadi retrieval membantu model, tetapi bukan jaminan setiap jawaban memiliki sumber.
+Jika embedding atau retrieval gagal, kode dapat melanjutkan tanpa konteks panduan. Prompt meminta model tidak mengisi kekosongan fakta klinis dengan tebakan dan menyatakan saat panduan tidak ditemukan. Ini mengurangi risiko halusinasi, tetapi tidak menjaminnya.
 
 ### 5. LLM menyusun jawaban
 
@@ -87,27 +86,27 @@ Model dipanggil melalui endpoint yang kompatibel dengan format OpenAI. Kode meng
 
 Server mengirim jawaban sebagai event stream. `chatStream.ts` membaca event dan `ChatbotPage.tsx` menampilkan teks sedikit demi sedikit. Server juga memeriksa pola tertentu yang terlihat seperti proses berpikir internal atau metadata keselamatan.
 
-Setelah jawaban online selesai, server mencoba menyimpan pesan pengguna dan asisten di `chat_messages`. Jika layanan online gagal, `chatService.ts` mencoba memberi jawaban FAQ/fallback lokal agar pengalaman pengguna tidak langsung terputus.
+Setelah jawaban online selesai, server mencoba menyimpan pesan pengguna dan asisten di `chat_messages`. Jika offline atau layanan online gagal, `chatService.ts` hanya menampilkan pemberitahuan koneksi; tidak ada jawaban FAQ lokal.
 
 ## Hubungannya dengan konsep AI Engineering
 
 | Konsep | Penerapan di Kira |
 |---|---|
-| **Orchestration dan routing** | `chatService.ts` memilih jalur aturan, FAQ lokal, offline, atau LLM. Sistem AI adalah alur beberapa komponen, bukan hanya model. |
+| **Orchestration dan routing** | `chatService.ts` mengatur persetujuan, koneksi, dan pemanggilan Edge Function; semua jawaban online dihasilkan LLM. |
 | **RAG (Retrieval-Augmented Generation)** | Panduan dicari dari database, lalu potongan relevan dimasukkan ke konteks model. Model tidak diandalkan hanya dari pengetahuan internalnya. |
 | **Hybrid retrieval** | Pencarian menggabungkan embedding dan kecocokan kata. Ini membantu saat istilah tertentu perlu dicari secara leksikal sekaligus semantis. |
 | **Prompt engineering** | System prompt mengatur persona, cakupan, penggunaan panduan, gaya jawaban, dan batas klinis. |
 | **Guardrails** | Validasi input, batas ukuran, rate limit, aturan tanda bahaya, persyaratan izin, dan penyaringan output. |
 | **Streaming** | Jawaban dikirim bertahap agar pengguna tidak perlu menunggu seluruh generasi selesai. |
 | **Data minimization** | Riwayat dibatasi dan teks untuk LLM disamarkan dari pola email serta nomor telepon. |
-| **Resilience dan fallback** | Jawaban cepat, FAQ lokal, dan mode offline mengurangi ketergantungan pada layanan model daring. |
+| **Resilience dan fallback** | Saat offline/provider gagal, aplikasi memberi pesan koneksi dan mempertahankan eskalasi darurat tanpa membuat jawaban kesehatan lokal. |
 | **Observability** | Edge Function mencatat waktu embedding, retrieval, token pertama, penyelesaian, dan total request. Ini metrik awal untuk memantau latensi. |
 
 ## Hal penting untuk dipahami
 
 ### `verified` tidak selalu berarti ditinjau ahli
 
-Pada jalur online, status `verified` menjadi `true` jika ada potongan panduan yang berhasil diambil. Itu lebih tepat dibaca sebagai **jawaban memiliki konteks panduan**, bukan **jawaban LLM sudah disetujui ahli**. FAQ lokal mempunyai penanda `terverifikasiAhli` tersendiri.
+Pada jalur online, status `verified` menjadi `true` jika ada potongan panduan yang berhasil diambil. Itu lebih tepat dibaca sebagai **jawaban memiliki konteks panduan**, bukan **jawaban LLM sudah disetujui ahli**.
 
 ### RAG membantu, tetapi tidak menjamin jawaban benar
 

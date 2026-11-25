@@ -17,6 +17,7 @@ export default function BottomNav({ active, onChange }: { active: Tab; onChange:
           return (
             <button
               key={it.id}
+              data-tour={`nav-${it.id}`}
               onClick={() => onChange(it.id as Tab)}
               aria-current={isActive ? "page" : undefined}
               className={`flex min-h-11 items-center justify-center rounded-[20px] transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7AAE9A] focus-visible:ring-offset-2 motion-reduce:transition-none ${isActive ? "shrink-0 gap-1.5 bg-[#4A6E54] px-3.5 py-3 text-white" : "min-w-0 flex-1 flex-col gap-0.5 px-1 py-1.5 text-[#33443F] hover:bg-[#EAF4F0]"}`}

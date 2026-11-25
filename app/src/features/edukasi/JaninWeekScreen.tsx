@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { ArrowLeft, ArrowRight, TriangleAlert } from "lucide-react"
 import { weeksFromHpht } from "@/clinical-rules/ukHpl"
 import { getCurrentProfile } from "@/data/currentUser"
-import { janinWeeks } from "./janinWeekData"
+import { janinIllustrationPath, janinWeeks, nearestJaninWeek } from "./janinWeekData"
 import VideoBelajarCard from "./VideoBelajarCard"
 import EdukasiDetailHeader from "./EdukasiDetailHeader"
 
@@ -11,10 +11,6 @@ const trimesterList = [
   { id: 2, label: "Trimester 2", weeks: janinWeeks.filter((item) => item.trimester === 2) },
   { id: 3, label: "Trimester 3", weeks: janinWeeks.filter((item) => item.trimester === 3) },
 ] as const
-
-function mingguMateriTerdekat(minggu: number) {
-  return Math.max(2, Math.min(40, Math.floor(minggu / 2) * 2))
-}
 
 export default function JaninWeekScreen({ onBack }: { onBack: () => void }) {
   const [mingguAktif, setMingguAktif] = useState(8)
@@ -35,8 +31,7 @@ export default function JaninWeekScreen({ onBack }: { onBack: () => void }) {
         const currentWeek = weeksFromHpht(profile.hpht)
         if (!Number.isFinite(currentWeek)) return
 
-        const availableWeek = mingguMateriTerdekat(currentWeek)
-        const record = janinWeeks.find((item) => item.week === availableWeek) ?? janinWeeks[3]
+        const record = nearestJaninWeek(currentWeek) ?? janinWeeks[3]
         setUsiaKehamilan(currentWeek)
         setMingguAktif(record.week)
         setTrimesterAktif(record.trimester)
@@ -141,7 +136,7 @@ export default function JaninWeekScreen({ onBack }: { onBack: () => void }) {
           </div>
           <div className="mt-3 bg-[#FFFDEC]">
             <img
-              src={`/s-06/s-06b/${minggu.week / 2 + 7}.webp`}
+              src={janinIllustrationPath(minggu.week)}
               alt={`Ilustrasi perkembangan janin minggu ke-${minggu.week}, dibandingkan dengan ${minggu.fruit.toLowerCase()}`}
               className="h-[220px] w-full object-contain sm:h-[260px]"
             />

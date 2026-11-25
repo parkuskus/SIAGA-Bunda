@@ -33,3 +33,14 @@ export const janinWeeks: JaninWeek[] = [
   { week: 38, trimester: 3, fruit: "Labu kuning", length: "~49 cm", weight: "~3,1 kg", milestones: ["Janin telah mencapai usia aterm.", "Usus berisi mekonium.", "Lanugo mulai rontok dan kulit makin mulus."], mom: "Kontraksi latihan dapat terasa makin intens. Kenali tanda persalinan yang perlu diperhatikan.", normal: "Lendir kental bercampur darah dapat muncul menjelang persalinan.", alert: "Ketuban pecah, perdarahan, atau gerakan janin berkurang perlu pertolongan segera.", tip: "Pastikan keluarga mengetahui kontak bidan dan rencana transportasi." },
   { week: 40, trimester: 3, fruit: "Semangka kecil", length: "~50 cm", weight: "~3,4 kg", milestones: ["Hari perkiraan lahir tiba.", "Organ janin telah berkembang untuk berfungsi di luar rahim.", "Verniks masih melapisi kulit."], mom: "Wajar bila Bunda merasa cemas menjelang persalinan. Tidak semua bayi lahir tepat pada hari perkiraan lahir.", normal: "Lewat dari HPL beberapa hari memerlukan pemantauan bidan atau dokter.", alert: "Gerakan janin berkurang, ketuban berwarna hijau, atau perdarahan perlu pertolongan segera.", tip: "Tetap pantau gerakan janin dan ikuti anjuran tenaga kesehatan bila HPL terlewati." },
 ]
+
+export function nearestJaninWeek(gestationalWeek: number): JaninWeek | null {
+  if (!Number.isFinite(gestationalWeek)) return null
+  const week = Math.max(2, Math.min(40, Math.floor(gestationalWeek / 2) * 2))
+  return janinWeeks.find((item) => item.week === week) ?? null
+}
+
+export function janinIllustrationPath(week: number): string {
+  const material = nearestJaninWeek(week) ?? janinWeeks[0]
+  return `/s-06/s-06b/${material.week / 2 + 7}.webp`
+}
