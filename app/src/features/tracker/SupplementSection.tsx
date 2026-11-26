@@ -112,7 +112,7 @@ export default function SupplementSection({ onAdd }: { onAdd: () => void }) {
         <h2 className="!m-0 text-[15px] font-bold tracking-tight text-[#1D2B29]">Pengingat Obat</h2>
       </div>
 
-      <Card className="rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none overflow-hidden">
+      <Card className="w-full min-w-0 rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none overflow-hidden">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <p className="text-[15px] font-bold tracking-tight text-[#1D2B29]">{title}</p>

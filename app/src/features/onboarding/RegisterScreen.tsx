@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
-import { submitRegister } from "@/features/onboarding/registerForm"
+import { saveRegistrationDraft, submitRegister, type RegisterInput, validateRegisterInput } from "@/features/onboarding/registerForm"
 import { supabase } from "@/data/supabase"
-import { hasVerifiedMfaToken, maskEmail, verifiedRegistrationUserId } from "@/features/onboarding/authFlow"
+import { hasVerifiedMfaToken, isDuplicateSignup, maskEmail, verifiedRegistrationUserId } from "@/features/onboarding/authFlow"
 import { validatePassword } from "@/features/onboarding/passwordPolicy"
 
 type Props = { onBack: () => void; onSuccess: () => void; onToLogin: () => void }
@@ -58,6 +58,20 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
   const [otpLoading, setOtpLoading] = useState(false)
   const [emailForOtp, setEmailForOtp] = useState("")
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [otpNotice, setOtpNotice] = useState<string | null>(null)
+
+  const registrationInput = (): RegisterInput => ({
+    nama: form.nama,
+    email: form.email.trim().toLowerCase(),
+    tanggalLahir: form.tanggalLahir,
+    noHp: form.noHp,
+    gravida: Number(form.gravida),
+    para: Number(form.para),
+    abortus: Number(form.abortus),
+    hpht: form.hpht,
+    fasyankes: form.fasyankes,
+    namaBidan: form.namaBidan,
+  })
 
   useEffect(() => {
     if (!resendCooldown) return
@@ -71,16 +85,9 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
     const resending = step === "otp"
     setGlobalErr(null)
     setOtpErr(null)
+    setOtpNotice(null)
     setErrs({})
-    // validasi dulu via submitRegister logic tanpa simpan
-    const tempErrs: Record<string, string> = {}
-    if (!form.nama.trim()) tempErrs.nama = "Nama wajib"
-    if (!form.tanggalLahir) tempErrs.tanggalLahir = "Tanggal lahir wajib"
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) tempErrs.email = "Alamat email tidak valid"
-    if (!/^08\d{8,11}$/.test(form.noHp.replace(/[^0-9]/g, ""))) tempErrs.noHp = "Nomor telepon tidak valid"
-    if (!form.hpht) tempErrs.hpht = "HPHT wajib"
-    if (!form.fasyankes.trim()) tempErrs.fasyankes = "Fasyankes wajib"
-    if (!form.namaBidan.trim()) tempErrs.namaBidan = "Nama bidan wajib"
+    const tempErrs = validateRegisterInput(registrationInput())
     if (!resending) {
       const passwordError = validatePassword(password, passwordConfirm)
       if (passwordError) {
@@ -101,7 +108,7 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
     }
 
     setLoading(true)
-    setResendCooldown(60)
+    let draftSaveFailed = false
     try {
       const normalizedEmail = form.email.trim().toLowerCase()
       setEmailForOtp(normalizedEmail)
@@ -110,14 +117,26 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
         if (error) throw error
       } else {
         const { data, error } = await supabase.auth.signUp({ email: normalizedEmail, password })
+        if (isDuplicateSignup(data.user, error)) {
+          throw new Error("Email sudah terdaftar, silakan masuk atau pulihkan sandi.")
+        }
         if (error) throw error
         if (data.session) {
           await supabase.auth.signOut({ scope: "local" })
           throw new Error("Konfirmasi email belum aktif. Hubungi pengelola SIAGA Bunda.")
         }
+        if (data.user?.id && data.user.email?.toLowerCase() === normalizedEmail) {
+          try {
+            await saveRegistrationDraft(registrationInput(), data.user.id)
+          } catch {
+            draftSaveFailed = true
+          }
+        }
       }
+      setResendCooldown(60)
       setDigits(["", "", "", "", "", ""])
       setStep("otp")
+      if (draftSaveFailed) setOtpNotice("Selesaikan verifikasi tanpa menutup halaman. Draf data belum tersimpan di perangkat.")
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Gagal mengirim kode OTP"
       const message = msg.toLowerCase().includes("rate limit") ? "Terlalu sering minta kode. Coba lagi beberapa saat." : msg
@@ -166,18 +185,7 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
           onSuccess()
           return
         }
-        await submitRegister({
-          nama: form.nama,
-          email: emailForOtp,
-          tanggalLahir: form.tanggalLahir,
-          noHp: form.noHp,
-          gravida: Number(form.gravida),
-          para: Number(form.para),
-          abortus: Number(form.abortus),
-          hpht: form.hpht,
-          fasyankes: form.fasyankes,
-          namaBidan: form.namaBidan,
-        }, userId)
+        await submitRegister(registrationInput(), userId)
         try { localStorage.removeItem("siaga_demo_user_id") } catch { /* Pendaftaran akun tetap lanjut tanpa storage browser. */ }
         onSuccess()
         return
@@ -233,6 +241,7 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
               ))}
             </div>
             {otpErr && <p role="alert" className="text-xs text-[#E57373] text-center">{otpErr}</p>}
+            {otpNotice && <p role="status" className="text-xs text-[#33443F] text-center">{otpNotice}</p>}
             <p className="text-center text-xs text-[#33443F]">Gunakan kode terbaru sebelum kedaluwarsa</p>
             <Button onClick={handleVerifyOtp} disabled={otpLoading} className="w-full rounded-full bg-[#4A6E54] hover:bg-[#3D5C46] py-3.5 text-sm font-semibold text-white">
               {otpLoading ? "Memeriksa" : "Verifikasi"}
@@ -268,20 +277,20 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
           <p className="text-lg font-bold text-[#1D2B29]">Data diri ibu</p>
           <div className="space-y-1.5 mt-2">
             <Label className="text-xs text-[#33443F]">Nama lengkap</Label>
-            <Input value={form.nama} onChange={(e) => set("nama", e.target.value)} placeholder="cth Siti Aminah" className="rounded-2xl bg-white" />
+            <Input id="register-name" value={form.nama} onChange={(e) => set("nama", e.target.value)} placeholder="cth Siti Aminah" className="h-11 rounded-2xl bg-white" />
             {errs.nama && <p className="text-xs text-[#E57373]">{errs.nama}</p>}
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs text-[#33443F]">Email</Label>
-            <Input type="email" autoComplete="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="nama@email.com" className="rounded-2xl bg-white" />
+            <Input id="register-email" type="email" autoComplete="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="nama@email.com" className="h-11 rounded-2xl bg-white" />
             {errs.email && <p className="text-xs text-[#E57373]">{errs.email}</p>}
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="register-password" className="text-xs text-[#33443F]">Sandi</Label>
             <div className="relative">
-              <Input id="register-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 rounded-2xl bg-white pr-12" />
+              <Input id="register-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11 rounded-2xl bg-white pr-12" />
               <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Sembunyikan sandi" : "Tampilkan sandi"} className="absolute inset-y-0 right-0 grid w-12 place-items-center text-[#4A6E54]">
                 {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
               </button>
@@ -293,7 +302,7 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
           <div className="space-y-1.5">
             <Label htmlFor="register-password-confirm" className="text-xs text-[#33443F]">Ulangi sandi</Label>
             <div className="relative">
-              <Input id="register-password-confirm" type={showPasswordConfirm ? "text" : "password"} autoComplete="new-password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} className="h-12 rounded-2xl bg-white pr-12" />
+              <Input id="register-password-confirm" type={showPasswordConfirm ? "text" : "password"} autoComplete="new-password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} className="h-11 rounded-2xl bg-white pr-12" />
               <button type="button" onClick={() => setShowPasswordConfirm((value) => !value)} aria-label={showPasswordConfirm ? "Sembunyikan sandi" : "Tampilkan sandi"} className="absolute inset-y-0 right-0 grid w-12 place-items-center text-[#4A6E54]">
                 {showPasswordConfirm ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
               </button>
@@ -304,12 +313,12 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-[#33443F]">Tanggal lahir</Label>
-              <DateInput value={form.tanggalLahir} onChange={(value) => set("tanggalLahir", value)} aria-label="Tanggal lahir" className="rounded-2xl bg-white" />
+              <DateInput value={form.tanggalLahir} onChange={(value) => set("tanggalLahir", value)} id="register-birthdate" aria-label="Tanggal lahir" className="h-11 rounded-2xl bg-white" />
               {errs.tanggalLahir && <p className="text-xs text-[#E57373]">{errs.tanggalLahir}</p>}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-[#33443F]">Nomor telepon</Label>
-              <Input type="tel" autoComplete="tel" inputMode="tel" value={form.noHp} onChange={(e) => set("noHp", e.target.value)} placeholder="08xxxxxxxxxx" className="rounded-2xl bg-white" />
+              <Input id="register-phone" type="tel" autoComplete="tel" inputMode="tel" value={form.noHp} onChange={(e) => set("noHp", e.target.value)} placeholder="08xxxxxxxxxx" className="h-11 rounded-2xl bg-white" />
               {errs.noHp && <p className="text-xs text-[#E57373]">{errs.noHp}</p>}
             </div>
           </div>

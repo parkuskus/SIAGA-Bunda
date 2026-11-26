@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto'
 import { createServer } from 'vite'
 
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } })
-const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom' })
+const server = await createServer({ cacheDir: 'node_modules/.vite-test-register-profile-sync', server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom' })
 try {
   const { submitRegister } = await server.ssrLoadModule('/src/features/onboarding/registerForm.ts')
   await assert.rejects(

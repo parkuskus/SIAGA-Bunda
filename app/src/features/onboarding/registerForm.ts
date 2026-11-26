@@ -2,7 +2,7 @@ import { db, type Profile } from '@/data/db'
 import { syncProfile } from '@/data/sync'
 import { calcHPL, weeksFromHpht, trimester, progressPercent } from '@/clinical-rules/ukHpl'
 
-// S-01: RegisterScreen — form-only logic (FE belum fix, UI menyusul)
+// S-01: Registration validation and local/cloud profile persistence.
 
 export type RegisterInput = {
   nama: string
@@ -37,17 +37,9 @@ export function validateRegisterInput(v: RegisterInput): Record<string, string> 
   return e
 }
 
-export async function submitRegister(input: RegisterInput, userId?: string): Promise<{ profile: Profile; uk: number; hpl: string; tri: 1|2|3; progress: number }> {
-  const errs = validateRegisterInput(input)
-  if (Object.keys(errs).length) throw Object.assign(new Error('validasi gagal'), { errs })
-
-  const uk = weeksFromHpht(input.hpht)
-  const hpl = calcHPL(input.hpht)
-  const tri = trimester(uk)
-  const progress = progressPercent(uk)
-  const id = userId ?? globalThis.crypto?.randomUUID?.() ?? ("demo-" + Date.now() + "-" + Math.random().toString(36).slice(2,8))
-
-  const profile: Profile = {
+function createProfile(input: RegisterInput, id: string, pendingRegistration = false): Profile {
+  const now = new Date().toISOString()
+  return {
     id,
     nama: input.nama.trim(),
     email: input.email.trim().toLowerCase(),
@@ -59,9 +51,31 @@ export async function submitRegister(input: RegisterInput, userId?: string): Pro
     abortus: input.abortus,
     fasyankes: input.fasyankes.trim(),
     nama_bidan: input.namaBidan.trim(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    ...(pendingRegistration ? { pendingRegistration: true } : {}),
+    createdAt: now,
+    updatedAt: now,
   }
+}
+
+function validateInput(input: RegisterInput) {
+  const errs = validateRegisterInput(input)
+  if (Object.keys(errs).length) throw Object.assign(new Error('validasi gagal'), { errs })
+}
+
+export async function saveRegistrationDraft(input: RegisterInput, userId: string): Promise<void> {
+  validateInput(input)
+  await db.profiles.put(createProfile(input, userId, true))
+}
+
+export async function submitRegister(input: RegisterInput, userId?: string): Promise<{ profile: Profile; uk: number; hpl: string; tri: 1|2|3; progress: number }> {
+  validateInput(input)
+  const uk = weeksFromHpht(input.hpht)
+  const hpl = calcHPL(input.hpht)
+  const tri = trimester(uk)
+  const progress = progressPercent(uk)
+  const id = userId ?? globalThis.crypto?.randomUUID?.() ?? ("demo-" + Date.now() + "-" + Math.random().toString(36).slice(2,8))
+
+  const profile = createProfile(input, id)
 
   await db.profiles.put(profile)
   if (await syncProfile(profile) !== 'synced') {

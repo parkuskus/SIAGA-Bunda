@@ -1,5 +1,6 @@
 import { supabase } from "./supabase"
 import { db, type Profile } from "./db"
+import { syncProfile } from "./sync"
 
 // ponytail: identitas eksplisit menang; jangan pernah memilih profil pertama karena bisa membuka data akun lain.
 export async function getCurrentUserId(): Promise<string> {
@@ -29,6 +30,14 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   const uid = await getCurrentUserId()
   const p = await db.profiles.get(uid)
   if (p) {
+    if (p.pendingRegistration && !uid.startsWith("demo-")) {
+      const { pendingRegistration: _, ...profile } = p
+      if (await syncProfile(profile) === "synced") {
+        await db.profiles.put(profile)
+        return profile
+      }
+      return p
+    }
     if (!uid.startsWith("demo-") && (!p.email || !p.hpht?.trim() || !p.avatarPath)) {
       try {
         const { data: remote } = await supabase.from("profiles")

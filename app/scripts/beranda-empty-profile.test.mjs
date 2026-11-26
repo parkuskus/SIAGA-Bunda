@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 
-const server = await createServer({ server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom' })
+const server = await createServer({ cacheDir: 'node_modules/.vite-test-beranda-empty-profile', server: { middlewareMode: true, hmr: false }, optimizeDeps: { noDiscovery: true }, appType: 'custom' })
 try {
   const { default: BerandaPage } = await server.ssrLoadModule('/src/features/beranda/BerandaPage.tsx')
   const html = renderToStaticMarkup(

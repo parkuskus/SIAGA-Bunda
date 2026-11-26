@@ -25,6 +25,10 @@ assert.equal(
   authFlow.verifiedRegistrationUserId({ access_token: 'unverified', user: { id: 'user-1', email: 'bunda@example.id' } }, 'bunda@example.id'),
   null,
 )
+assert.equal(authFlow.isDuplicateSignup({ identities: [] }), true)
+assert.equal(authFlow.isDuplicateSignup({ identities: [{ provider: 'email' }] }), false)
+assert.equal(authFlow.isDuplicateSignup(null), false)
+assert.equal(authFlow.isDuplicateSignup(null, { code: 'user_already_exists' }), true)
 
 await assert.rejects(
   authFlow.loginWithPassword({ signInWithPassword: async () => ({ error: new Error('invalid') }) }, 'bunda@example.id', 'salah'),

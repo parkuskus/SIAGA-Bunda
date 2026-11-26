@@ -277,7 +277,7 @@ export default function PengingatPage({ setShowBottomNav }: { setShowBottomNav: 
               <h2 className="!m-0 text-[15px] font-bold text-[#1D2B29]">Berat badan</h2>
               <button onClick={() => setShowWeightHistory(true)} className="min-h-11 rounded-full bg-white px-3 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#D9E7E2] active:scale-[0.98] transition">Riwayat</button>
             </div>
-          <Card className="rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none">
+          <Card className="w-full min-w-0 rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none">
             <CardContent className="p-4">
             <div className="mt-1 min-w-0 w-full">
               <WeightChart entries={weightBars} targetAbs={targetAbs} />
@@ -305,7 +305,7 @@ export default function PengingatPage({ setShowBottomNav }: { setShowBottomNav: 
 
           <section className="space-y-2.5">
             <h2 className="px-1 text-[15px] font-bold text-[#1D2B29]">Jadwal periksa</h2>
-            <Card className="rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none">
+            <Card className="w-full min-w-0 rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none">
               <CardContent className="p-4">
                 <p className="text-xs text-[#536961]">{nextAncLabel}</p>
                 {!anc.length ? (
@@ -331,7 +331,7 @@ export default function PengingatPage({ setShowBottomNav }: { setShowBottomNav: 
               </div>
               <button onClick={() => setShowDiaryHistory(true)} className="min-h-11 rounded-full bg-white px-3.5 text-xs font-semibold text-[#4A6E54] ring-1 ring-[#D9E7E2] active:scale-[0.98] transition">Riwayat</button>
             </div>
-            <Card className="rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none">
+            <Card className="w-full min-w-0 rounded-[24px] border-0 bg-[#EAF4F0] ring-0 shadow-none">
               <CardContent className="space-y-2 p-4">
               <Input aria-label="Judul Diary" value={diaryTitle} onChange={(e) => setDiaryTitle(e.target.value)} placeholder="Judul Diary" className="h-11 rounded-[14px] border-[#D9E7E2] bg-white px-4 text-sm font-bold placeholder:text-sm placeholder:font-bold" />
               <textarea value={diaryText} onChange={(e) => setDiaryText(e.target.value)} placeholder="Tulis isi diary Bunda hari ini" className="min-h-[88px] w-full rounded-[14px] bg-white p-3 text-sm ring-1 ring-[#D9E7E2] placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#7AAE9A]/40" />

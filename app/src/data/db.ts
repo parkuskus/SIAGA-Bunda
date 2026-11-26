@@ -17,6 +17,7 @@ export interface Profile {
   nama_bidan: string
   avatarPath?: string
   avatarBlob?: Blob
+  pendingRegistration?: boolean
   createdAt: string
   updatedAt: string
 }

@@ -42,6 +42,14 @@ export function verifiedRegistrationUserId(
     : null;
 }
 
+export function isDuplicateSignup(
+  user: { identities?: unknown[] } | null,
+  error?: { code?: string } | null,
+): boolean {
+  return ["email_exists", "user_already_exists"].includes(error?.code ?? "")
+    || (Array.isArray(user?.identities) && user.identities.length === 0);
+}
+
 export function maskEmail(email: string): string {
   const [local, domain] = email.trim().split("@");
   if (!local || !domain) return "alamat email";
