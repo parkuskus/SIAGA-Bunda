@@ -17,6 +17,7 @@ import { disablePushNotifications } from "@/services/pushNotifications"
 import type { BirthPlan, Profile, ScreeningResult } from "@/data/db"
 import BirthPlanScreen from "@/features/beranda/BirthPlanScreen"
 import { getBirthPlan } from "@/features/beranda/birthPlanService"
+import { createMissingProfileDraft } from "@/features/profil/profileRecovery"
 
 type Props = { uk: number; hplLabel: string; setShowBottomNav: (visible: boolean) => void }
 
@@ -32,6 +33,7 @@ function MenuRow({ icon, label, onClick, last }: { icon: React.ReactNode; label:
 
 export default function ProfilPage({ uk: ukProp, hplLabel: hplProp, setShowBottomNav }: Props) {
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [missingProfileDraft, setMissingProfileDraft] = useState<Profile | null>(null)
   const [history, setHistory] = useState<ScreeningResult[]>([])
   const [birthPlan, setBirthPlan] = useState<BirthPlan | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -49,7 +51,7 @@ export default function ProfilPage({ uk: ukProp, hplLabel: hplProp, setShowBotto
 
   const load = async () => {
     const p = await getCurrentProfile()
-    if (p) setProfile(p)
+    setProfile(p)
     const id = p?.id ?? (await getCurrentUserId())
     setUid(id)
     const plan = await getBirthPlan(id)
@@ -60,6 +62,9 @@ export default function ProfilPage({ uk: ukProp, hplLabel: hplProp, setShowBotto
     try {
       const { data } = await supabase.auth.getSession()
       setVerified(!!data.session?.user)
+      setMissingProfileDraft(!p && data.session?.user?.id === id
+        ? createMissingProfileDraft(data.session.user)
+        : null)
     } catch { /* Profil tetap dapat dibuka tanpa status jaringan Auth. */ }
   }
 
@@ -77,8 +82,8 @@ export default function ProfilPage({ uk: ukProp, hplLabel: hplProp, setShowBotto
   const hasHpht = Boolean(hpht)
   const uk = hasHpht ? weeksFromHpht(hpht) : profile ? null : ukProp
   const hplLabel = hasHpht ? new Date(calcHPL(hpht)).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : profile ? "Belum diisi" : hplProp
-  const nama = profile?.nama ?? "Siti"
-  const gpa = profile ? `G${profile.gravida}P${profile.para}A${profile.abortus}` : "G2P1A0"
+  const nama = profile?.nama || "Profil belum diisi"
+  const gpa = profile ? `G${profile.gravida}P${profile.para}A${profile.abortus}` : "Belum diisi"
 
   const handleExport = async (viaWA: boolean) => {
     setExporting(true)
@@ -140,7 +145,7 @@ export default function ProfilPage({ uk: ukProp, hplLabel: hplProp, setShowBotto
   if (showNotif) return <NotificationSettingScreen onBack={() => setShowNotif(false)} />
   if (showStorage) return <StorageSettingScreen onBack={() => setShowStorage(false)} />
   if (showAvatarEditor && profile) return <AvatarEditor profile={profile} onBack={() => setShowAvatarEditor(false)} onSaved={() => { setShowAvatarEditor(false); void load() }} />
-  if (showEdit && profile) return <EditProfileScreen profile={profile} onBack={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); void load() }} />
+  if (showEdit && (profile || missingProfileDraft)) return <EditProfileScreen profile={(profile || missingProfileDraft)!} isNew={!profile} onBack={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); setShowDetail(false); void load() }} />
   if (showHistory) return <HistoryScreen history={history} onBack={() => setShowHistory(false)} onChanged={() => void load()} />
   if (showDetail && profile)
     return (
@@ -176,7 +181,7 @@ export default function ProfilPage({ uk: ukProp, hplLabel: hplProp, setShowBotto
             <p className="truncate text-xs text-[#536961]">{profile?.noHp || "Nomor telepon belum diisi"}</p>
             <p className="mt-1 text-xs font-semibold text-[#4A6E54]">{gpa}</p>
           </div>
-          <button onClick={() => profile && setShowDetail(true)} aria-label="Ubah profil" className="grid size-11 shrink-0 place-items-center rounded-full bg-white text-[#4A6E54] ring-1 ring-[#D9E7E2] transition-colors hover:bg-[#F7FAF8] active:scale-95">
+          <button onClick={() => profile ? setShowDetail(true) : missingProfileDraft && setShowEdit(true)} aria-label="Ubah profil" className="grid size-11 shrink-0 place-items-center rounded-full bg-white text-[#4A6E54] ring-1 ring-[#D9E7E2] transition-colors hover:bg-[#F7FAF8] active:scale-95">
             <Pencil className="size-4" />
           </button>
         </section>

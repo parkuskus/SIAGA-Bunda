@@ -9,10 +9,11 @@ import { syncProfile } from "@/data/sync"
 import type { Profile } from "@/data/db"
 
 // S-08: email dan nomor telepon ditampilkan sebagai identitas akun.
-export default function EditProfileScreen({ profile, onBack, onSaved }: { profile: Profile; onBack: () => void; onSaved: () => void }) {
+export default function EditProfileScreen({ profile, isNew = false, onBack, onSaved }: { profile: Profile; isNew?: boolean; onBack: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     nama: profile.nama,
     tanggal_lahir: profile.tanggal_lahir,
+    noHp: profile.noHp,
     hpht: profile.hpht,
     gravida: profile.gravida,
     para: profile.para,
@@ -26,15 +27,17 @@ export default function EditProfileScreen({ profile, onBack, onSaved }: { profil
   const handleSave = async () => {
     setErr(null)
     if (!form.nama.trim()) return setErr("Nama wajib diisi")
+    if (isNew && !form.tanggal_lahir) return setErr("Tanggal lahir wajib diisi")
+    if (isNew && !/^08\d{8,11}$/.test(form.noHp.replace(/[^0-9]/g, ""))) return setErr("Nomor telepon tidak valid")
     if (!form.hpht) return setErr("HPHT wajib diisi")
     if (new Date(form.hpht) > new Date()) return setErr("HPHT tidak boleh di masa depan")
     if (form.para > form.gravida) return setErr("Para tidak boleh lebih dari gravida")
     setLoading(true)
     try {
       const now = new Date().toISOString()
-      const row: Profile = { ...profile, nama: form.nama.trim(), tanggal_lahir: form.tanggal_lahir, hpht: form.hpht, gravida: Number(form.gravida), para: Number(form.para), abortus: Number(form.abortus), fasyankes: form.fasyankes, nama_bidan: form.nama_bidan, updatedAt: now }
+      const row: Profile = { ...profile, nama: form.nama.trim(), tanggal_lahir: form.tanggal_lahir, noHp: form.noHp, hpht: form.hpht, gravida: Number(form.gravida), para: Number(form.para), abortus: Number(form.abortus), fasyankes: form.fasyankes, nama_bidan: form.nama_bidan, updatedAt: now }
       await db.profiles.put(row)
-      await syncProfile(row)
+      if (await syncProfile(row) === "failed") throw new Error("Profil belum dapat disimpan. Coba lagi.")
       onSaved()
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Gagal menyimpan")
@@ -75,7 +78,7 @@ export default function EditProfileScreen({ profile, onBack, onSaved }: { profil
             </div>
             <div className="min-w-0 space-y-1.5">
               <Label className="text-xs font-medium text-[#33443F]">Nomor telepon</Label>
-              <Input type="tel" value={profile.noHp || "Belum diisi"} disabled aria-label="Nomor telepon" className="h-11 rounded-[14px] border-[#D9E7E2] bg-[#F1F5F2] px-3 text-sm text-[#6C757D] disabled:opacity-100" />
+              <Input type="tel" value={isNew ? form.noHp : profile.noHp || "Belum diisi"} disabled={!isNew} onChange={(e) => setForm((s) => ({ ...s, noHp: e.target.value }))} aria-label="Nomor telepon" className="h-11 rounded-[14px] border-[#D9E7E2] bg-[#F1F5F2] px-3 text-sm text-[#6C757D] disabled:opacity-100" />
             </div>
           </div>
         </section>
