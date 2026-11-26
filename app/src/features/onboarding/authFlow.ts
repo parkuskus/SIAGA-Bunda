@@ -33,6 +33,15 @@ export function hasVerifiedMfaToken(token: string | null | undefined): boolean {
   }
 }
 
+export function verifiedRegistrationUserId(
+  session: { access_token: string; user: { id: string; email?: string } } | null,
+  email: string,
+): string | null {
+  return session?.user.email?.toLowerCase() === email.toLowerCase() && hasVerifiedMfaToken(session.access_token)
+    ? session.user.id
+    : null;
+}
+
 export function maskEmail(email: string): string {
   const [local, domain] = email.trim().split("@");
   if (!local || !domain) return "alamat email";

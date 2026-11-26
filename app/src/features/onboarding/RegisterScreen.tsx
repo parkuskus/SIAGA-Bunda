@@ -6,7 +6,7 @@ import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { submitRegister } from "@/features/onboarding/registerForm"
 import { supabase } from "@/data/supabase"
-import { hasVerifiedMfaToken, maskEmail } from "@/features/onboarding/authFlow"
+import { hasVerifiedMfaToken, maskEmail, verifiedRegistrationUserId } from "@/features/onboarding/authFlow"
 import { validatePassword } from "@/features/onboarding/passwordPolicy"
 
 type Props = { onBack: () => void; onSuccess: () => void; onToLogin: () => void }
@@ -142,17 +142,21 @@ export default function RegisterScreen({ onBack, onSuccess, onToLogin }: Props) 
     if (isOnline) {
       setOtpLoading(true)
       try {
-        const { data, error } = await supabase.auth.verifyOtp({
-          email: emailForOtp,
-          token: otpValue.trim(),
-          type: "signup",
-        })
-        if (error) throw error
-        if (!hasVerifiedMfaToken(data.session?.access_token)) {
-          await supabase.auth.signOut({ scope: "local" })
-          throw new Error("Verifikasi belum aman. Silakan masuk kembali.")
+        const { data: { session } } = await supabase.auth.getSession()
+        let userId = verifiedRegistrationUserId(session, emailForOtp)
+        if (!userId) {
+          const { data, error } = await supabase.auth.verifyOtp({
+            email: emailForOtp,
+            token: otpValue.trim(),
+            type: "signup",
+          })
+          if (error) throw error
+          if (!hasVerifiedMfaToken(data.session?.access_token)) {
+            await supabase.auth.signOut({ scope: "local" })
+            throw new Error("Verifikasi belum aman. Silakan masuk kembali.")
+          }
+          userId = data.user?.id ?? data.session?.user?.id ?? null
         }
-        const userId = data.user?.id ?? data.session?.user?.id
         if (!userId) throw new Error("Verifikasi berhasil tapi sesi tidak ditemukan")
         const { data: existingProfile, error: profileError } = await supabase.from("profiles")
           .select("id").eq("id", userId).maybeSingle()

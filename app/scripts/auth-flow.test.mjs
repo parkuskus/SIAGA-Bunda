@@ -12,6 +12,20 @@ const userId = await authFlow.loginWithPassword({
 assert.equal(signInCalls, 1)
 assert.equal(userId, 'user-1')
 
+const claimedToken = `header.${btoa(JSON.stringify({ app_mfa_verified: true }))}.signature`
+assert.equal(
+  authFlow.verifiedRegistrationUserId({ access_token: claimedToken, user: { id: 'user-1', email: 'BUNDA@example.id' } }, 'bunda@example.id'),
+  'user-1',
+)
+assert.equal(
+  authFlow.verifiedRegistrationUserId({ access_token: claimedToken, user: { id: 'user-1', email: 'other@example.id' } }, 'bunda@example.id'),
+  null,
+)
+assert.equal(
+  authFlow.verifiedRegistrationUserId({ access_token: 'unverified', user: { id: 'user-1', email: 'bunda@example.id' } }, 'bunda@example.id'),
+  null,
+)
+
 await assert.rejects(
   authFlow.loginWithPassword({ signInWithPassword: async () => ({ error: new Error('invalid') }) }, 'bunda@example.id', 'salah'),
   /Email atau sandi tidak cocok/,

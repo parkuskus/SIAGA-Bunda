@@ -37,7 +37,7 @@ function hariIniLabel(): string {
 }
 
 // S-02 Beranda — stage sage + hero illu-12 + sheet (ikut Figma 23:1098)
-export default function BerandaPage({ uk: ukProp, progress: progressProp, countdown: countdownProp, isPostpartum, setIsPostpartum, setShowBirth, setTab, setShowBottomNav, onOpenFetalEducation }: Props) {
+export default function BerandaPage({ isPostpartum, setIsPostpartum, setShowBirth, setTab, setShowBottomNav, onOpenFetalEducation }: Props) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [hariNifas, setHariNifas] = useState(1)
   const [beratLahir, setBeratLahir] = useState<number | null>(null)
@@ -119,13 +119,13 @@ export default function BerandaPage({ uk: ukProp, progress: progressProp, countd
   const hpht = profile?.hpht?.trim() || ""
   const reminderCount = meds.reduce((sum, med) => sum + med.waktu.length, 0) + (nextAncLabel ? 1 : 0)
   const hasHpht = Boolean(hpht)
-  const uk = hasHpht ? weeksFromHpht(hpht) : profile ? null : ukProp
-  const progress = hasHpht ? progressPercent(uk!) : profile ? null : progressProp
+  const uk = hasHpht ? weeksFromHpht(hpht) : null
+  const progress = hasHpht ? progressPercent(uk!) : null
   const hpl = hasHpht ? calcHPL(hpht) : null
-  const hplLabel = hpl ? formatHpl(hpht) : profile ? "Belum diisi" : "19 Nov 2026"
-  const countdown = hpl ? Math.max(0, Math.ceil((new Date(hpl).getTime() - new Date().getTime()) / 86400000)) : profile ? null : countdownProp
-  const gpa = profile ? `G${profile.gravida}P${profile.para}A${profile.abortus}` : "G2P1A0"
-  const nama = profile?.nama ? profile.nama.split(" ")[0] : "Siti"
+  const hplLabel = hpl ? formatHpl(hpht) : "Belum diisi"
+  const countdown = hpl ? Math.max(0, Math.ceil((new Date(hpl).getTime() - new Date().getTime()) / 86400000)) : null
+  const gpa = profile ? `G${profile.gravida}P${profile.para}A${profile.abortus}` : "Belum diisi"
+  const nama = profile?.nama ? profile.nama.split(" ")[0] : "Bunda"
   const lastLabel = last ? `${needsRepeat(last) ? last.kategori === "MERAH" ? "Bahaya, perlu pemeriksaan ulang" : "Perlu pemeriksaan ulang" : last.kategori === "HIJAU" ? "Kondisi aman" : last.kategori === "KUNING" ? "Skrining Terakhir (Waspada)" : "Skrining Terakhir (Bahaya)"}` : "Belum ada skrining"
   const lastDate = last ? new Date(last.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : "Lakukan skrining pertama"
 
@@ -146,6 +146,7 @@ export default function BerandaPage({ uk: ukProp, progress: progressProp, countd
           <div className="min-w-0 flex-1">
             <p className="text-[17px] text-white/90">{hariIniLabel()}</p>
             <h1 className="text-[30px] font-extrabold tracking-tight leading-none" style={{ color: "#fff", margin: 0, marginTop: 10 }}>Halo, {nama}</h1>
+            {!profile && <p className="mt-2 text-sm text-white/90">Profil belum diisi. Buka Profil untuk melengkapi data.</p>}
             <p className="text-[14px] leading-relaxed text-white/90" style={{ margin: 0, marginTop: 15}}>Yuk, jaga kesehatan diri dan si kecil di setiap tahap kehamilan</p>
           </div>
           <img src="/illu/illu-12-hero-2.webp" alt="Bunda hamil" className="h-[170px] w-[130px] shrink-0 rounded-[20px] object-cover" />

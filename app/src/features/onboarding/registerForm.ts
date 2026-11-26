@@ -64,6 +64,8 @@ export async function submitRegister(input: RegisterInput, userId?: string): Pro
   }
 
   await db.profiles.put(profile)
-  await syncProfile(profile)
+  if (await syncProfile(profile) !== 'synced') {
+    throw new Error('Profil belum tersimpan di cloud. Periksa koneksi, lalu tekan Verifikasi lagi.')
+  }
   return { profile, uk, hpl, tri, progress }
 }
