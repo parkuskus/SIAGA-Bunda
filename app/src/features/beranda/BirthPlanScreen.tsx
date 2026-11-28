@@ -330,6 +330,12 @@ export default function BirthPlanScreen({ userId, readOnly = false, onClose }: P
       </header>
 
       <main className="space-y-5 px-4 pb-8 pt-5">
+        <aside className="flex items-start gap-3 rounded-[22px] bg-[#EAF4F0] p-4 text-[#1D2B29]">
+          <p className="min-w-0 flex-1 text-sm leading-relaxed">
+            P4K (Program Perencanaan Persalinan dan Pencegahan Komplikasi) adalah catatan rencana persalinan aman bagi Ibu dan keluarga. Lengkapi secara bertahap bersama pasangan atau bidan menjelang hari perkiraan lahir.
+          </p>
+          <img src="/s-06/s-06h/hero-persiapan.webp" alt="" className="mt-1 hidden h-20 w-20 shrink-0 object-contain min-[400px]:block" />
+        </aside>
         {memuat ? (
           <div aria-live="polite" className="rounded-[22px] bg-white p-5 text-sm text-[#536961] ring-1 ring-[#D9E7E2]">Memuat rencana persalinan…</div>
         ) : (

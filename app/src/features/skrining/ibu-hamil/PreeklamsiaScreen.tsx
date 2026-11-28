@@ -77,7 +77,7 @@ export default function PreeklamsiaScreen({ onBack, onSuccess }: { onBack: () =>
     proteinuria, riwayatPE: riwayat.includes("pe"), htKronik: riwayat.includes("ht"), ginjalKronik: riwayat.includes("ginjal"),
     diabetesMelitus: riwayat.includes("dm"), autoimun: riwayat.includes("autoimun"), riwayatKeluargaPE: riwayat.includes("keluarga"),
     kehamilanGanda: gemeli, nullipara: anakPertama, faktorDitinjau,
-  }, { sistolik: "Sistolik (mmHg)", diastolik: "Diastolik (mmHg)", ukMinggu: "Usia kehamilan", usia: "Usia ibu", imtPre: "IMT sebelum hamil", jarakTahun: "Jarak kehamilan", proteinuria: "Protein urine", faktorDitinjau: "Riwayat dan kondisi kehamilan" })
+  }, { sistolik: "Tekanan darah atas (mmHg)", diastolik: "Tekanan darah bawah (mmHg)", ukMinggu: "Usia kehamilan", usia: "Usia ibu", imtPre: "IMT sebelum hamil", jarakTahun: "Jarak kehamilan", proteinuria: "Protein urine", faktorDitinjau: "Riwayat dan kondisi kehamilan" })
   const tekananTerisi = sistolik.trim() !== "" && diastolik.trim() !== "" && Number.isFinite(Number(sistolik)) && Number.isFinite(Number(diastolik))
   const tekananMerah = (sistolik.trim() !== "" && Number(sistolik) >= 160) || (diastolik.trim() !== "" && Number(diastolik) >= 110)
   const partialRed = tekananMerah || (tekananTerisi && (kategoriMAP(calcMAP(Number(sistolik), Number(diastolik))) === "MERAH" || (proteinuria === true && Number(ukMinggu) >= 20 && ukMinggu.trim() !== "" && kategoriTD(Number(sistolik), Number(diastolik)) !== "HIJAU")))
@@ -181,8 +181,8 @@ export default function PreeklamsiaScreen({ onBack, onSuccess }: { onBack: () =>
               <h2 className="!m-0 text-sm font-bold text-[#1D2B29]">Tekanan Darah dan Data Kehamilan</h2>
               <div className="grid grid-cols-2 gap-2.5">
                 {[
-                  { key: "sistolik", label: "Sistolik (mmHg)", value: sistolik, set: setSistolik },
-                  { key: "diastolik", label: "Diastolik (mmHg)", value: diastolik, set: setDiastolik },
+                  { key: "sistolik", label: "Tekanan darah atas (mmHg)", value: sistolik, set: setSistolik },
+                  { key: "diastolik", label: "Tekanan darah bawah (mmHg)", value: diastolik, set: setDiastolik },
                   { key: "ukMinggu", label: "Usia kehamilan (minggu)", value: ukMinggu, set: setUkMinggu },
                   { key: "usia", label: "Usia ibu (tahun)", value: usia, set: setUsia },
                   { key: "imtPre", label: "IMT pra-hamil", value: imtPre, set: setImtPre },
@@ -221,7 +221,7 @@ export default function PreeklamsiaScreen({ onBack, onSuccess }: { onBack: () =>
             <section className="space-y-2.5 rounded-[24px] bg-[#EAF4F0] p-3.5">
               <h2 className="!m-0 text-sm font-bold text-[#1D2B29]">Riwayat dan penyakit penyerta</h2>
               <CheckRow checked={riwayat.includes("pe")} label="Pernah preeklamsia sebelumnya" onToggle={() => toggleRiwayat("pe")} />
-              <CheckRow checked={riwayat.includes("ht")} label="Hipertensi kronik" onToggle={() => toggleRiwayat("ht")} />
+              <CheckRow checked={riwayat.includes("ht")} label="Darah tinggi menahun" onToggle={() => toggleRiwayat("ht")} />
               <CheckRow checked={riwayat.includes("ginjal")} label="Penyakit ginjal" onToggle={() => toggleRiwayat("ginjal")} />
               <CheckRow checked={riwayat.includes("dm")} label="Diabetes melitus" onToggle={() => toggleRiwayat("dm")} />
               <CheckRow checked={riwayat.includes("autoimun")} label="Autoimun (APS/SLE)" onToggle={() => toggleRiwayat("autoimun")} />

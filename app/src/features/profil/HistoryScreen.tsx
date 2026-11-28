@@ -12,7 +12,7 @@ const TIPE_LABEL: Record<string, string> = {
   imt_lila: "Status Gizi",
   danger_sign: "Tanda Bahaya",
   preeklamsia: "Preeklamsia",
-  dmg: "Diabetes Gestasional",
+  dmg: "Diabetes Kehamilan",
   epds: "Kesehatan Mental",
   nifas: "Masa Nifas",
   laktasi: "Laktasi",

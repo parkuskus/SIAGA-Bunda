@@ -9,7 +9,8 @@ export type RiskFactorInput = {
   userId: string
   usia: number // tahun
   ukMinggu?: number
-  paritas: number // jumlah anak (grande >=4)
+  gravida: number // urutan kehamilan
+  paritas: number // jumlah persalinan sebelumnya
   jarakTahun?: number
   riwayatKomplikasi?: boolean // +4, jika SC +8 via riwayatSC
   riwayatSC?: boolean
@@ -24,18 +25,19 @@ export type RiskFactorInput = {
   tbCm?: number
   bbPreKg?: number
   trb?: boolean // teknik reproduksi berbantu
-  jawabanForm?: { paritas: string | null; jarak: string | null; riwayatKomplikasi: string[]; penyakitKronik: string[]; gemeli: boolean | null; trb: boolean | null; letak: boolean | null; hidramnion: boolean | null }
+  jawabanForm?: { gravida: number; jarak: string | null; riwayatKomplikasi: string[]; penyakitKronik: string[]; gemeli: boolean | null; trb: boolean | null; letak: boolean | null; hidramnion: boolean | null }
 }
 
 export function validateRiskFactor(v: RiskFactorInput): Record<string, string> {
   const e: Record<string, string> = validateScreening('poedji_rochjati', v as unknown as Record<string, unknown>)
   if (!v.userId) e.userId = 'userId wajib'
   if (v.usia < 10 || v.usia > 60) e.usia = 'Usia (tahun) harus 10–60'
-  if (v.paritas < 0 || v.paritas > 15) e.paritas = 'Paritas 0-15'
+  if (!Number.isSafeInteger(v.gravida) || v.gravida < 1) e.gravida = 'Urutan kehamilan harus berupa angka bulat minimal 1'
+  if (!Number.isSafeInteger(v.paritas) || v.paritas < 0 || v.paritas > 15 || v.paritas > v.gravida) e.paritas = 'Jumlah persalinan sebelumnya harus 0–15 dan tidak melebihi urutan kehamilan'
   if (v.jarakTahun !== undefined && (v.jarakTahun < 0 || v.jarakTahun > 20)) e.jarakTahun = 'Jarak kehamilan (tahun) harus 0–20'
   if (v.ukMinggu !== undefined && (v.ukMinggu < 0 || v.ukMinggu > 45)) e.ukMinggu = 'Usia kehamilan (minggu) harus 0–45'
-  if (v.sistolik !== undefined && (v.sistolik < 70 || v.sistolik > 250)) e.sistolik = 'Sistolik (mmHg) harus 70–250'
-  if (v.diastolik !== undefined && (v.diastolik < 40 || v.diastolik > 150)) e.diastolik = 'Diastolik (mmHg) harus 40–150'
+  if (v.sistolik !== undefined && (v.sistolik < 70 || v.sistolik > 250)) e.sistolik = 'Tekanan darah atas (mmHg) harus 70–250'
+  if (v.diastolik !== undefined && (v.diastolik < 40 || v.diastolik > 150)) e.diastolik = 'Tekanan darah bawah (mmHg) harus 40–150'
   if (v.tbCm !== undefined && (v.tbCm < 100 || v.tbCm > 200)) e.tbCm = 'Tinggi (cm) harus 100–200'
   if (v.bbPreKg !== undefined && (v.bbPreKg < 20 || v.bbPreKg > 250)) e.bbPreKg = 'BB sebelum hamil (kg) harus 20–250'
   return e
@@ -60,8 +62,8 @@ export async function submitRiskFactor(input: RiskFactorInput) {
 
   const faktorRisiko: string[] = []
   if (input.usia < 20 || input.usia > 35) faktorRisiko.push('Usia berisiko (<20/>35)')
-  if (input.paritas >= 4) faktorRisiko.push('Grande multipara (4+ anak)')
-  if (input.paritas > 4) faktorRisiko.push('Terlalu banyak anak (>4)')
+  if (input.paritas >= 4) faktorRisiko.push('Grande multipara (4+ persalinan)')
+  if (input.paritas > 4) faktorRisiko.push('Terlalu banyak persalinan (>4)')
   if (input.jarakTahun !== undefined && input.jarakTahun < 2) faktorRisiko.push('Jarak <2th')
   if (input.riwayatKomplikasi) faktorRisiko.push('Riwayat komplikasi kehamilan')
   if (input.riwayatSC) faktorRisiko.push('Riwayat operasi caesar')
@@ -74,7 +76,7 @@ export async function submitRiskFactor(input: RiskFactorInput) {
 
   const faktorAman: string[] = []
   if (input.usia >= 20 && input.usia <= 35) faktorAman.push('Usia 20–35 tahun (rentang aman)')
-  if (input.paritas >= 1 && input.paritas <= 3) faktorAman.push('Jumlah anak 1–3 (tidak grande)')
+  if (input.paritas >= 1 && input.paritas <= 3) faktorAman.push('Jumlah persalinan 1–3 (tidak grande)')
   if (input.jarakTahun !== undefined && input.jarakTahun >= 2) faktorAman.push('Jarak kehamilan ≥2 tahun')
   if (!input.riwayatSC && !input.riwayatKomplikasi) faktorAman.push('Tidak ada riwayat komplikasi/SC')
   if (!input.riwayatPE) faktorAman.push('Tidak ada riwayat preeklamsia')

@@ -25,14 +25,19 @@ export function validateScreening(tipe: string, v: Input): Record<string, string
     case 'poedji_rochjati': {
       requireNumber('usia', 10, 60, 'Usia ibu')
       requireNumber('ukMinggu', 0, 45, 'Usia kehamilan')
-      requireNumber('paritas', 0, 15, 'Paritas')
+      requireNumber('paritas', 0, 15, 'jumlah persalinan sebelumnya')
       const answers = v.jawabanForm as Input | undefined
-      if (!answers || !choice(answers.paritas, ['primi', 'multi', 'grande']) || !choice(answers.jarak, ['lt2', 'gte2', 'belum']) || !Array.isArray(answers.riwayatKomplikasi) || !answers.riwayatKomplikasi.length || !Array.isArray(answers.penyakitKronik) || !answers.penyakitKronik.length || !['gemeli', 'trb', 'letak', 'hidramnion'].every((key) => boolean(answers[key])) || !boolean(v.riwayatPE)) errors.jawabanForm = 'Lengkapi riwayat dan kondisi kehamilan'
+      const hasGravidaAnswer = answers && typeof answers.gravida === 'number'
+      if (hasGravidaAnswer) {
+        if (!Number.isSafeInteger(v.gravida) || (v.gravida as number) < 1) errors.gravida = 'Isi urutan kehamilan dengan angka bulat minimal 1'
+        if (!Number.isSafeInteger(v.paritas) || (v.paritas as number) > (v.gravida as number)) errors.paritas = 'Jumlah persalinan sebelumnya tidak boleh melebihi urutan kehamilan'
+      }
+      if (!answers || (!hasGravidaAnswer && !choice(answers.paritas, ['primi', 'multi', 'grande'])) || (hasGravidaAnswer && answers.gravida !== v.gravida) || !choice(answers.jarak, ['lt2', 'gte2', 'belum']) || !Array.isArray(answers.riwayatKomplikasi) || !answers.riwayatKomplikasi.length || !Array.isArray(answers.penyakitKronik) || !answers.penyakitKronik.length || !['gemeli', 'trb', 'letak', 'hidramnion'].every((key) => boolean(answers[key])) || !boolean(v.riwayatPE)) errors.jawabanForm = 'Lengkapi riwayat dan kondisi kehamilan'
       if (answers && Array.isArray(answers.riwayatKomplikasi) && Array.isArray(answers.penyakitKronik)) {
         const komplikasi = answers.riwayatKomplikasi as string[]
         const kronik = answers.penyakitKronik as string[]
         const matched = (
-          (answers.paritas === 'primi' ? v.paritas === 0 : answers.paritas === 'grande' ? number(v.paritas, 4, 15) : number(v.paritas, 1, 3)) &&
+          (hasGravidaAnswer || (answers.paritas === 'primi' ? v.paritas === 0 : answers.paritas === 'grande' ? number(v.paritas, 4, 15) : number(v.paritas, 1, 3))) &&
           (answers.jarak === 'belum' ? v.jarakTahun === undefined : answers.jarak === 'lt2' ? number(v.jarakTahun, 0, 1.999) : number(v.jarakTahun, 2, 20)) &&
           v.riwayatSC === komplikasi.includes('sc') &&
           v.riwayatPE === komplikasi.includes('pe') &&
@@ -44,7 +49,7 @@ export function validateScreening(tipe: string, v: Input): Record<string, string
         if (!matched || (komplikasi.includes('tidak') && komplikasi.length > 1) || (kronik.includes('tidak') && kronik.length > 1)) errors.jawabanForm = 'Riwayat yang ditinjau tidak sesuai dengan data penilaian'
       }
       if (answers?.jarak !== 'belum' && !number(v.jarakTahun, 0, 20)) errors.jarakTahun = range('jarakTahun', 0, 20, 'jarak kehamilan')
-      for (const [key, min, max, label] of [['sistolik', 70, 250, 'Sistolik'], ['diastolik', 40, 150, 'Diastolik'], ['tbCm', 100, 200, 'tinggi badan'], ['bbPreKg', 20, 250, 'BB sebelum hamil']] as const) if (filled(v[key]) && !number(v[key], min, max)) errors[key] = range(key, min, max, label)
+      for (const [key, min, max, label] of [['sistolik', 70, 250, 'tekanan darah atas'], ['diastolik', 40, 150, 'tekanan darah bawah'], ['tbCm', 100, 200, 'tinggi badan'], ['bbPreKg', 20, 250, 'BB sebelum hamil']] as const) if (filled(v[key]) && !number(v[key], min, max)) errors[key] = range(key, min, max, label)
       break
     }
     case 'imt_lila':
@@ -60,8 +65,8 @@ export function validateScreening(tipe: string, v: Input): Record<string, string
       if (v.bengkakWajahTangan === true) requireBoolean('tdTinggi', 'tekanan darah tinggi')
       break
     case 'preeklamsia':
-      requireNumber('sistolik', 70, 250, 'Sistolik')
-      requireNumber('diastolik', 40, 150, 'Diastolik')
+      requireNumber('sistolik', 70, 250, 'tekanan darah atas')
+      requireNumber('diastolik', 40, 150, 'tekanan darah bawah')
       requireNumber('ukMinggu', 0, 45, 'Usia kehamilan')
       requireNumber('usia', 10, 60, 'Usia ibu')
       requireNumber('imtPre', 0.1, 100, 'IMT sebelum hamil')
@@ -86,8 +91,8 @@ export function validateScreening(tipe: string, v: Input): Record<string, string
     case 'nifas':
       requireNumber('hariKe', 0, 42, 'Hari nifas')
       requireNumber('suhu', 34, 42, 'Suhu tubuh')
-      requireNumber('sistolik', 70, 250, 'Sistolik')
-      requireNumber('diastolik', 40, 150, 'Diastolik')
+      requireNumber('sistolik', 70, 250, 'tekanan darah atas')
+      requireNumber('diastolik', 40, 150, 'tekanan darah bawah')
       requireNumber('perdarahanMl', 0, 10000, 'Perdarahan')
       requireNumber('nyeriSkala', 0, 10, 'Skala nyeri')
       requireNumber('mood', 1, 5, 'Suasana hati')

@@ -222,7 +222,7 @@ export default function SkriningPage({
   if (activeForm === "dmg") {
     return (
       <div className="space-y-4">
-        <DmgScreen onBack={() => setActiveForm(null)} onSuccess={(r) => handleSuccess("dmg", { warna: r.kategori, extra: r.perluTTGO ? "Perlu TTGO" : "Tidak perlu TTGO" }, { tipeLabel: "Diabetes Gestasional", kategori: r.kategori, faktorRisiko: r.faktorRisiko, faktorAman: r.faktorAman, rekomendasiTambahan: r.perluTTGO ? ["Lakukan tes TTGO pada UK 24–28 minggu di fasyankes"] : [] })} />
+        <DmgScreen onBack={() => setActiveForm(null)} onSuccess={(r) => handleSuccess("dmg", { warna: r.kategori, extra: r.perluTTGO ? "Perlu TTGO" : "Tidak perlu TTGO" }, { tipeLabel: "Diabetes Kehamilan", kategori: r.kategori, faktorRisiko: r.faktorRisiko, faktorAman: r.faktorAman, rekomendasiTambahan: r.perluTTGO ? ["Lakukan tes TTGO pada UK 24–28 minggu di fasyankes"] : [] })} />
       </div>
     )
   }
@@ -315,7 +315,7 @@ export default function SkriningPage({
         { key: "gizi", title: "Skrining Status Gizi", sub: "Skrining untuk memantau gizi Bunda dan janin", icon: <Apple className="size-6 text-[#9A5B00]" />, iconBg: "bg-[#FFF1E8]" },
         { key: "danger", title: "Skrining Tanda Bahaya Kehamilan", sub: "Skrining untuk mengenali tanda yang perlu segera diperiksa", icon: <TriangleAlert className="size-6 text-[#16685C]" />, iconBg: "bg-[#DFF0EA]" },
         { key: "preeklamsia", title: "Skrining Preeklamsia", sub: "Skrining untuk deteksi dini tekanan darah tinggi", icon: <HeartPulse className="size-6 text-[#16685C]" />, iconBg: "bg-[#DFF0EA]" },
-        { key: "dmg", title: "Skrining Diabetes Gestasional", sub: "Skrining untuk cek risiko gula darah saat hamil", icon: <Droplets className="size-6 text-[#9A5B00]" />, iconBg: "bg-[#FFF1E8]" },
+        { key: "dmg", title: "Skrining Diabetes Kehamilan", sub: "Skrining untuk cek risiko gula darah saat hamil", icon: <Droplets className="size-6 text-[#9A5B00]" />, iconBg: "bg-[#FFF1E8]" },
         { key: "mental", title: "Suasana Kesehatan Mental", sub: "Skrining untuk memantau suasana hati Bunda", icon: <Brain className="size-6 text-[#DB2777]" />, iconBg: "bg-[#FFE2E2]" },
       ]
     : skriningTab === "nifas" && isPostpartum
@@ -370,6 +370,10 @@ export default function SkriningPage({
             )
           })}
         </div>
+
+        <aside aria-label="Petunjuk mengisi formulir" className="rounded-[20px] bg-white px-3.5 py-3 text-sm leading-relaxed text-[#33443F] ring-1 ring-[#D9E7E2]">
+          Formulir ini dapat diisi mandiri berdasarkan kondisi Bunda atau buku KIA. Apabila ada bagian yang kurang dipahami, silakan konsultasikan kepada bidan saat pemeriksaan.
+        </aside>
 
         <div className="space-y-2.5 rounded-[24px] bg-[#EAF4F0] p-2">
           {menuItems.length ? menuItems.map((item) => {

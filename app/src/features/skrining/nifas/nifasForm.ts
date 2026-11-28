@@ -59,7 +59,7 @@ export async function submitNifas(input: NifasInput) {
   if (input.suhu > 38 && input.nyeriUterus && input.lochiaBau) faktorRisiko.push('Curiga infeksi nifas (demam + nyeri perut + cairan berbau)')
   else if (input.lochiaBau) faktorRisiko.push('Cairan nifas berbau — waspada infeksi')
   if ((input.perdarahanMl ?? 0) > 500) faktorRisiko.push(`Perdarahan ${input.perdarahanMl} ml (>500 ml)`)
-  if (input.lukaBengkak) faktorRisiko.push('Luka perineum/bekas operasi bengkak atau bernanah')
+  if (input.lukaBengkak) faktorRisiko.push('Jahitan jalan lahir atau bekas operasi bengkak atau bernanah')
   if ((input.nyeriSkala ?? 0) >= 7) faktorRisiko.push(`Nyeri skala ${input.nyeriSkala}/10 — perlu evaluasi`)
   if ((input.mood ?? 5) <= 2) faktorRisiko.push('Suasana hati buruk — isi skrining EPDS dan konseling bidan')
   if (input.produksiASI === 'tidak') faktorRisiko.push('ASI belum keluar — cek skrining laktasi')

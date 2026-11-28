@@ -64,7 +64,7 @@ export default function NifasScreen({
     nadi: form.nadi.trim() ? numericOrMissing(form.nadi) : undefined,
     spo2: form.spo2.trim() ? numericOrMissing(form.spo2) : undefined, keluhanDitinjau,
   }, {
-    hariKe: "Hari nifas", suhu: "Suhu tubuh", sistolik: "Sistolik", diastolik: "Diastolik",
+    hariKe: "Hari nifas", suhu: "Suhu tubuh", sistolik: "Tekanan darah atas", diastolik: "Tekanan darah bawah",
     perdarahanMl: "Perdarahan", nyeriSkala: "Skala nyeri", produksiASI: "Produksi ASI", mood: "Suasana hati",
     keluhanDitinjau: "Keluhan nifas", nadi: "Nadi", spo2: "SpO2",
   })
@@ -146,8 +146,8 @@ export default function NifasScreen({
             {[
               { key: "hariKe", label: "Hari nifas (hari)", value: form.hariKe },
               { key: "suhu", label: "Suhu tubuh (°C)", value: form.suhu, step: "0.1" },
-              { key: "sistolik", label: "Sistolik (mmHg)", value: form.sistolik },
-              { key: "diastolik", label: "Diastolik (mmHg)", value: form.diastolik },
+              { key: "sistolik", label: "Tekanan darah atas (mmHg)", value: form.sistolik },
+              { key: "diastolik", label: "Tekanan darah bawah (mmHg)", value: form.diastolik },
               { key: "nadi", label: "Nadi (kali per menit)", value: form.nadi },
               { key: "spo2", label: "SpO2 (%)", value: form.spo2 },
               { key: "perdarahanMl", label: "Perdarahan (mL)", value: form.perdarahanMl },
@@ -206,7 +206,7 @@ export default function NifasScreen({
           {[
             { key: "lochiaBau", label: "Cairan nifas berbau tidak sedap" },
             { key: "nyeriUterus", label: "Nyeri tekan di perut bawah" },
-            { key: "lukaBengkak", label: "Luka perineum atau bekas operasi bengkak atau bernanah" },
+            { key: "lukaBengkak", label: "Jahitan jalan lahir atau bekas operasi bengkak atau bernanah" },
           ].map((item) => {
             const checked = form[item.key as keyof typeof form] as boolean
             return (

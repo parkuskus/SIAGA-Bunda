@@ -27,8 +27,8 @@ export type PreeklamsiaInput = {
 export function validatePreeklamsia(v: PreeklamsiaInput): Record<string, string> {
   const e: Record<string, string> = validateScreening('preeklamsia', v as unknown as Record<string, unknown>)
   if (!v.userId) e.userId = 'userId wajib'
-  if (v.sistolik < 70 || v.sistolik > 250) e.sistolik = 'Sistolik 70-250'
-  if (v.diastolik < 40 || v.diastolik > 150) e.diastolik = 'Diastolik 40-150'
+  if (v.sistolik < 70 || v.sistolik > 250) e.sistolik = 'Tekanan darah atas harus 70–250 mmHg'
+  if (v.diastolik < 40 || v.diastolik > 150) e.diastolik = 'Tekanan darah bawah harus 40–150 mmHg'
   return e
 }
 
@@ -58,7 +58,7 @@ export async function submitPreeklamsia(input: PreeklamsiaInput) {
   if (curigaPE) faktorRisiko.push('Curiga preeklamsia (TD tinggi + protein urine)')
   else if (input.proteinuria) faktorRisiko.push('Protein urine positif')
   if (input.riwayatPE) faktorRisiko.push('Riwayat preeklamsia sebelumnya')
-  if (input.htKronik) faktorRisiko.push('Hipertensi kronik')
+  if (input.htKronik) faktorRisiko.push('Darah tinggi menahun')
   if (input.ginjalKronik) faktorRisiko.push('Penyakit ginjal kronik')
   if (input.diabetesMelitus) faktorRisiko.push('Diabetes melitus')
   if (input.autoimun) faktorRisiko.push('Penyakit autoimun (APS/SLE)')
