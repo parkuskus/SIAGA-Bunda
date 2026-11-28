@@ -15,11 +15,13 @@ const choiceClass = (selected: boolean) => `min-h-11 rounded-[14px] px-3 text-xs
 export default function HipotiroidScreen({
   onBack,
   onSuccess,
+  babyId,
 }: {
   onBack: () => void
   onSuccess: (r: Result) => void
+  babyId: string
 }) {
-  const { loading: draftLoading, userId, detail } = useLatestScreeningDraft("hipotiroid")
+  const { loading: draftLoading, userId, detail } = useLatestScreeningDraft("hipotiroid", false, babyId)
   const [form, setForm] = useState({
     sudahTSH: null as boolean | null,
     usiaBayiHari: "",
@@ -65,6 +67,7 @@ export default function HipotiroidScreen({
     try {
       const res = await submitHipotiroid({
         userId,
+        babyId,
         sudahTSH: form.sudahTSH!,
         usiaBayiHari: Number(form.usiaBayiHari),
         gejala: form.gejala,

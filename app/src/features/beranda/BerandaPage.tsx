@@ -6,7 +6,7 @@ import { needsRepeat } from "@/features/skrining/screeningCompleteness"
 import { getCurrentProfile, getCurrentUserId } from "@/data/currentUser"
 import { weeksFromHpht, calcHPL, progressPercent } from "@/clinical-rules/ukHpl"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
-import type { Profile, ScreeningResult } from "@/data/db"
+import type { BBLProfile, Profile, ScreeningResult } from "@/data/db"
 import ProfileCard from "./components/ProfileCard"
 import QuickActionGrid from "./components/QuickActionGrid"
 import LastCheckCard from "./components/LastCheckCard"
@@ -40,8 +40,7 @@ function hariIniLabel(): string {
 export default function BerandaPage({ isPostpartum, setIsPostpartum, setShowBirth, setTab, setShowBottomNav, onOpenFetalEducation }: Props) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [hariNifas, setHariNifas] = useState(1)
-  const [beratLahir, setBeratLahir] = useState<number | null>(null)
-  const [panjangLahir, setPanjangLahir] = useState<number | null>(null)
+  const [babies, setBabies] = useState<BBLProfile[]>([])
   const [last, setLast] = useState<ScreeningResult | null>(null)
   const [meds, setMeds] = useState<{ nama: string; waktu: string[] }[]>([])
   const [nextAncLabel, setNextAncLabel] = useState<string | null>(null)
@@ -61,17 +60,26 @@ export default function BerandaPage({ isPostpartum, setIsPostpartum, setShowBirt
       const p = await getCurrentProfile()
       if (p) setProfile(p)
       const uid = p?.id ?? (await getCurrentUserId())
-      const birth = await db.bblProfiles.get(uid)
-      if (birth?.dataLahir) {
-        const elapsed = Math.floor((Date.now() - new Date(birth.dataLahir).getTime()) / 86400000)
-        if (Number.isFinite(elapsed)) setHariNifas(Math.min(42, Math.max(1, elapsed + 1)))
-      }
+      const bbl = await db.bblProfiles.where("userId").equals(uid).toArray()
+      const orderedBabies = bbl.sort((a, b) => (a.createdAt ?? a.dataLahir).localeCompare(b.createdAt ?? b.dataLahir) || a.id.localeCompare(b.id))
       const birthEntry = (await db.nifasScreenings.where("userId").equals(uid).toArray())
         .filter((entry) => entry.status === "lahir")
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
       const birthValues = birthEntry?.parameterVital
-      if (typeof birthValues?.bb === "number") setBeratLahir(birthValues.bb)
-      if (typeof birthValues?.pb === "number") setPanjangLahir(birthValues.pb)
+      const legacyBabyIndex = orderedBabies.findIndex((baby) => baby.id === uid)
+      if (legacyBabyIndex >= 0) {
+        orderedBabies[legacyBabyIndex] = {
+          ...orderedBabies[legacyBabyIndex],
+          beratLahirGr: orderedBabies[legacyBabyIndex].beratLahirGr ?? (typeof birthValues?.bb === "number" ? birthValues.bb : undefined),
+          panjangLahirCm: orderedBabies[legacyBabyIndex].panjangLahirCm ?? (typeof birthValues?.pb === "number" ? birthValues.pb : undefined),
+        }
+      }
+      setBabies(orderedBabies)
+      const deliveryDate = birthEntry?.createdAt ?? orderedBabies[0]?.dataLahir
+      if (deliveryDate) {
+        const elapsed = Math.floor((Date.now() - new Date(deliveryDate).getTime()) / 86400000)
+        if (Number.isFinite(elapsed)) setHariNifas(Math.min(42, Math.max(1, elapsed + 1)))
+      }
       const all = await db.screeningResults.where("userId").equals(uid).toArray()
       // ponytail: entri timbangan (tipe weight) bukan skrining — jangan tampil sebagai Cek Terakhir
       const skr = all.filter((r) => r.tipe !== "weight")
@@ -166,8 +174,7 @@ export default function BerandaPage({ isPostpartum, setIsPostpartum, setShowBirt
           <ProfileCard
             isPostpartum={isPostpartum}
             hariNifas={hariNifas}
-            beratLahir={beratLahir}
-            panjangLahir={panjangLahir}
+            babies={babies}
             uk={uk}
             progress={progress}
             countdown={countdown}

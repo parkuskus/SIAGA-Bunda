@@ -19,6 +19,11 @@ import { getCurrentProfile, getCurrentUserId } from "@/data/currentUser"
 import { shareViaWA } from "@/services/exportService"
 import { needsRepeat } from "@/features/skrining/screeningCompleteness"
 import { needsGiziReview } from "@/features/skrining/giziReview"
+import { mergeAndPersistBblProfiles, mergeBblProfiles } from "@/features/skrining/bblProfiles"
+import BabyProfileDialog, { type BabyProfileInput } from "@/features/skrining/bbl/BabyProfileDialog"
+import { syncBbl } from "@/data/sync"
+import { supabase } from "@/data/supabase"
+import type { BBLProfile } from "@/data/db"
 
 type SkriningTab = "hamil" | "nifas" | "bbl"
 type ActiveForm = null | "risk" | "gizi" | "danger" | "preeklamsia" | "dmg" | "mental" | "nifas" | "laktasi" | "ikterus" | "hipotiroid"
@@ -47,6 +52,10 @@ export default function SkriningPage({
   const [activeForm, setActiveForm] = useState<ActiveForm>(initialForm)
   const [bidanPendamping, setBidanPendamping] = useState<{ nama: string; fasyankes: string }>({ nama: "", fasyankes: "" })
   const [results, setResults] = useState<Record<string, AnyResult & { createdAt?: string }>>({})
+  const [bblProfiles, setBblProfiles] = useState<BBLProfile[]>([])
+  const [selectedBabyId, setSelectedBabyId] = useState("")
+  const [addBabyOpen, setAddBabyOpen] = useState(false)
+  const [babySyncNotice, setBabySyncNotice] = useState<string | null>(null)
   const [activeResult, setActiveResult] = useState<null | {
     tipeKey: string
     tipeLabel: string
@@ -76,9 +85,11 @@ export default function SkriningPage({
 
   const HAMIL_KEYS = ["risk", "gizi", "danger", "preeklamsia", "dmg", "mental"] as const
   const NIFAS_BBL_KEYS = ["nifas", "laktasi", "ikterus", "hipotiroid"] as const
+  const resultKey = (key: string, babyId = selectedBabyId) =>
+    ["ikterus", "hipotiroid"].includes(key) ? `${key}:${babyId || "no-baby"}` : key
 
   const relevantKeys = isNifasActive ? (NIFAS_BBL_KEYS as unknown as string[]) : (HAMIL_KEYS as unknown as string[])
-  const doneCount = relevantKeys.filter((k) => results[k] && !results[k].perluUlang && isToday((results[k] as { createdAt?: string }).createdAt)).length
+  const doneCount = relevantKeys.filter((k) => results[resultKey(k)] && !results[resultKey(k)].perluUlang && isToday((results[resultKey(k)] as { createdAt?: string }).createdAt)).length
   const totalForMode = relevantKeys.length
   const progressPct = totalForMode ? Math.round((doneCount / totalForMode) * 100) : 0
 
@@ -101,6 +112,25 @@ export default function SkriningPage({
     void (async () => {
       try {
         const uid = await getCurrentUserId()
+        const localBabies = await db.bblProfiles.where("userId").equals(uid).toArray()
+        let remoteBabies: BBLProfile[] = []
+        try {
+          const { data } = await supabase.from("bbl_profiles").select("*").eq("user_id", uid).order("created_at", { ascending: true })
+          remoteBabies = (data ?? []).map((row) => ({
+            id: row.id as string,
+            userId: row.user_id as string,
+            nama: (row.nama as string | null) ?? undefined,
+            dataLahir: (row.data_lahir as string | null) ?? "",
+            apgar: (row.apgar as number | null) ?? undefined,
+            usiaGestasi: (row.usia_gestasi as number | null) ?? undefined,
+            beratLahirGr: (row.berat_lahir_gram as number | null) ?? undefined,
+            panjangLahirCm: (row.panjang_lahir_cm as number | null) ?? undefined,
+            createdAt: (row.created_at as string | null) ?? undefined,
+          }))
+        } catch { /* Data bayi lokal tetap tersedia saat offline atau kolom baru belum dimigrasikan. */ }
+        const babies = await mergeAndPersistBblProfiles(uid, localBabies, remoteBabies)
+        setBblProfiles(babies)
+        setSelectedBabyId((current) => babies.some((baby) => baby.id === current) ? current : babies[0]?.id ?? "")
         void getCurrentProfile().then((profile) => {
           setBidanPendamping({ nama: profile?.nama_bidan ?? "", fasyankes: profile?.fasyankes ?? "" })
         }).catch(() => {})
@@ -120,7 +150,9 @@ export default function SkriningPage({
         }
         for (const r of all.sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
           const k = tipeToKey[r.tipe] ?? r.tipe
-          if (!map[k]) map[k] = { warna: r.kategori, kategori: r.kategori, skor: r.skor, extra: String(r.skor), createdAt: r.createdAt, perluUlang: needsRepeat(r), perluTinjauGizi: needsGiziReview(r) }
+          const babyId = typeof r.detail?.babyId === "string" ? r.detail.babyId : uid
+          const stateKey = resultKey(k, babyId)
+          if (!map[stateKey]) map[stateKey] = { warna: r.kategori, kategori: r.kategori, skor: r.skor, extra: String(r.skor), createdAt: r.createdAt, perluUlang: needsRepeat(r), perluTinjauGizi: needsGiziReview(r) }
         }
         setResults((current) => {
           const latest = { ...map }
@@ -158,7 +190,7 @@ export default function SkriningPage({
 
   const handleSuccess = (key: string, r: AnyResult, meta?: { tipeLabel: string; faktorRisiko?: string[]; faktorAman?: string[]; skor?: number | string; kategori?: string; skorLabel?: string; rekomendasiTambahan?: string[]; perluTinjauGizi?: boolean }) => {
     const withDate = { ...r, perluUlang: false, createdAt: new Date().toISOString() } as AnyResult & { createdAt: string }
-    setResults((prev) => ({ ...prev, [key]: withDate }))
+    setResults((prev) => ({ ...prev, [resultKey(key)]: withDate }))
     setActiveForm(null)
     if (meta) {
       const warna = r.warna as "HIJAU" | "KUNING" | "MERAH"
@@ -184,6 +216,27 @@ export default function SkriningPage({
       const uid = await getCurrentUserId()
       await shareViaWA(uid)
     } catch { /* Berbagi tidak wajib untuk meninjau hasil skrining. */ }
+  }
+
+  const handleAddBaby = async (input: BabyProfileInput) => {
+    const userId = await getCurrentUserId()
+    const id = globalThis.crypto?.randomUUID?.()
+    if (!id) throw new Error("Browser tidak dapat membuat ID bayi yang aman. Perbarui browser sebelum menambah data.")
+    const baby: BBLProfile = { id, userId, ...input, createdAt: new Date().toISOString() }
+    await db.bblProfiles.put(baby)
+    setBblProfiles((current) => mergeBblProfiles(userId, [...current, baby], []))
+    setSelectedBabyId(id)
+    setAddBabyOpen(false)
+    let outcome: Awaited<ReturnType<typeof syncBbl>>
+    try { outcome = await syncBbl(baby) } catch { outcome = "failed" }
+    setBabySyncNotice(outcome === "failed" ? "Data tersimpan di perangkat, tetapi belum masuk antrean sinkronisasi. Coba lagi saat koneksi tersedia." : null)
+  }
+
+  const retryBabySync = async () => {
+    const baby = bblProfiles.find((item) => item.id === selectedBabyId)
+    if (!baby) return
+    const outcome = await syncBbl(baby)
+    setBabySyncNotice(outcome === "failed" ? "Sinkronisasi belum berhasil. Data tetap tersimpan di perangkat." : null)
   }
 
 
@@ -258,6 +311,7 @@ export default function SkriningPage({
       <div className="space-y-4">
         <IkterusScreen
           onBack={() => setActiveForm(null)}
+          babyId={selectedBabyId}
           onSuccess={(r) => handleSuccess("ikterus", { warna: r.warna, kategori: r.kategori, extra: r.warna }, { tipeLabel: "Ikterus Neonatal (Kramer)", kategori: r.kategori, faktorRisiko: (r as { faktorRisiko?: string[] }).faktorRisiko ?? [], faktorAman: (r as { faktorAman?: string[] }).faktorAman ?? [] })}
         />
       </div>
@@ -268,6 +322,7 @@ export default function SkriningPage({
       <div className="space-y-4">
         <HipotiroidScreen
           onBack={() => setActiveForm(null)}
+          babyId={selectedBabyId}
           onSuccess={(r) => handleSuccess("hipotiroid", { warna: r.warna, kategori: r.kategori, extra: r.warna }, { tipeLabel: "Hipotiroid Kongenital", kategori: r.kategori, faktorRisiko: (r as { faktorRisiko?: string[] }).faktorRisiko ?? [], faktorAman: (r as { faktorAman?: string[] }).faktorAman ?? [] })}
         />
       </div>
@@ -303,6 +358,10 @@ export default function SkriningPage({
         onBeranda={() => {
           setActiveResult(null)
           setTab("beranda")
+        }}
+        onDaftarSkrining={() => {
+          setActiveResult(null)
+          setActiveForm(null)
         }}
         onBagikan={handleBagikan}
       />
@@ -375,9 +434,32 @@ export default function SkriningPage({
           Formulir ini dapat diisi mandiri berdasarkan kondisi Bunda atau buku KIA. Apabila ada bagian yang kurang dipahami, silakan konsultasikan kepada bidan saat pemeriksaan.
         </aside>
 
+        {skriningTab === "bbl" && isPostpartum && (
+          <section className="space-y-2 rounded-[20px] bg-white p-3 ring-1 ring-[#D9E7E2]">
+            {bblProfiles.length > 0 ? (
+              <>
+                <label htmlFor="screening-baby" className="block text-xs font-semibold text-[#33443F]">Pilih bayi yang akan diskrining</label>
+                <select id="screening-baby" value={selectedBabyId} onChange={(event) => setSelectedBabyId(event.target.value)} className="min-h-11 w-full rounded-[14px] border border-[#D9E7E2] bg-[#FFFEFC] px-3 text-sm text-[#1D2B29]">
+                  {bblProfiles.map((baby, index) => <option key={baby.id} value={baby.id}>{baby.nama || `Bayi ${index + 1}`}</option>)}
+                </select>
+              </>
+            ) : (
+              <p className="text-sm leading-relaxed text-[#33443F]">Tambahkan data setiap bayi terlebih dahulu agar hasil skrining tersimpan pada bayi yang tepat.</p>
+            )}
+            <Button variant="outline" className="min-h-11 w-full rounded-full border-[#D9E7E2] bg-white text-[#33443F]" onClick={() => setAddBabyOpen(true)}>
+              Tambah bayi
+            </Button>
+            {babySyncNotice && (
+              <p role="status" className="text-xs leading-relaxed text-[#8E2424]">
+                {babySyncNotice} {babySyncNotice.includes("belum") && <button type="button" className="ml-1 underline" onClick={() => void retryBabySync()}>Coba sinkronkan</button>}
+              </p>
+            )}
+          </section>
+        )}
+
         <div className="space-y-2.5 rounded-[24px] bg-[#EAF4F0] p-2">
           {menuItems.length ? menuItems.map((item) => {
-            const result = results[item.key]
+            const result = results[resultKey(item.key)]
             const statusClass = !result
               ? "border border-[#D9E7E2] bg-white text-[#33443F]"
                : result.warna === "MERAH"
@@ -391,7 +473,13 @@ export default function SkriningPage({
             return (
               <button
                 key={item.key}
-                onClick={() => setActiveForm(item.key as ActiveForm)}
+                onClick={() => {
+                  if (["ikterus", "hipotiroid"].includes(item.key) && !selectedBabyId) {
+                    setAddBabyOpen(true)
+                    return
+                  }
+                  setActiveForm(item.key as ActiveForm)
+                }}
                 className="flex w-full items-center gap-2.5 rounded-[18px] bg-white px-3 py-2.5 text-left transition-colors hover:bg-[#FFFCF6]"
               >
                 <span className={`grid size-[46px] shrink-0 place-items-center rounded-[15px] ${item.iconBg}`}>{item.icon}</span>
@@ -420,6 +508,13 @@ export default function SkriningPage({
           )}
         </div>
       </section>
+      <BabyProfileDialog
+        open={addBabyOpen}
+        onOpenChange={setAddBabyOpen}
+        defaultLabel={`Bayi ${bblProfiles.length + 1}`}
+        defaultDate={bblProfiles[0]?.dataLahir?.slice(0, 10) ?? new Date().toISOString().slice(0, 10)}
+        onSave={handleAddBaby}
+      />
     </div>
   )
 }

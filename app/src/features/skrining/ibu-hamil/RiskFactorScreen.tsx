@@ -76,7 +76,7 @@ export default function RiskFactorScreen({
   onBack: () => void
   onSuccess: (r: Result) => void
 }) {
-  const { loading: draftLoading, userId, detail, profile } = useLatestScreeningDraft("poedji_rochjati")
+  const { loading: draftLoading, userId, detail, profile, prefill } = useLatestScreeningDraft("poedji_rochjati", true)
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [usia, setUsia] = useState("")
   const [ukMinggu, setUkMinggu] = useState("")
@@ -131,14 +131,16 @@ export default function RiskFactorScreen({
       setUkMinggu(ukFromProfile(profile))
       setGravida(profile?.gravida ? String(profile.gravida) : "")
       setParitas(profile && Number.isSafeInteger(profile.para) ? String(profile.para) : "")
+      setTbCm(String(prefill?.tbCm ?? ""))
+      setBbPreKg(String(prefill?.bbPreKg ?? ""))
       return
     }
     setUsia(String(detail.usia ?? ageFromProfile(profile)))
     setUkMinggu(String(detail.ukMinggu ?? ukFromProfile(profile)))
     setSistolik(detail.sistolik == null ? "" : String(detail.sistolik))
     setDiastolik(detail.diastolik == null ? "" : String(detail.diastolik))
-    setTbCm(detail.tbCm == null ? "" : String(detail.tbCm))
-    setBbPreKg(detail.bbPreKg == null && detail.bbKg == null ? "" : String(detail.bbPreKg ?? detail.bbKg))
+    setTbCm(detail.tbCm == null ? String(prefill?.tbCm ?? "") : String(detail.tbCm))
+    setBbPreKg(detail.bbPreKg == null && detail.bbKg == null ? String(prefill?.bbPreKg ?? "") : String(detail.bbPreKg ?? detail.bbKg))
     setRiwayatPE(typeof detail.riwayatPE === "boolean" ? detail.riwayatPE : null)
     setGravida(String(detail.gravida ?? profile?.gravida ?? ""))
     setParitas(String(detail.gravida != null ? detail.paritas ?? profile?.para ?? "" : profile?.para ?? ""))
@@ -161,7 +163,7 @@ export default function RiskFactorScreen({
       setHidramnion(typeof detail.hidramnion === "boolean" ? detail.hidramnion : null)
       setLegacyAnswersIncomplete(true)
     }
-  }, [draftLoading, detail, profile])
+  }, [draftLoading, detail, profile, prefill])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const toggleKompl = (id: string) => {
@@ -324,6 +326,13 @@ export default function RiskFactorScreen({
           <div className="space-y-3.5">
             <section className="space-y-2.5 rounded-[24px] bg-[#EAF4F0] p-3.5">
               <h2 className="!m-0 text-sm font-bold text-[#1D2B29]">Pemeriksaan Fisik</h2>
+              {(prefill?.bbPreKgTanggal || prefill?.tbCmTanggal) && (
+                <p className="text-xs leading-relaxed text-[#33443F]">
+                  {prefill.bbPreKgTanggal && <>BB awal dari skrining tanggal {new Date(`${prefill.bbPreKgTanggal}T00:00:00`).toLocaleDateString("id-ID")}. </>}
+                  {prefill.tbCmTanggal && <>Tinggi dari skrining tanggal {new Date(`${prefill.tbCmTanggal}T00:00:00`).toLocaleDateString("id-ID")}. </>}
+                  Periksa dan ubah jika perlu.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-2.5">
                 {[
                   { label: "Tekanan darah atas (mmHg)", value: sistolik, set: setSistolik, key: "sistolik" },

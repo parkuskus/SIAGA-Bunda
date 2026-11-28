@@ -17,11 +17,13 @@ const choiceClass = (selected: boolean) => `min-h-11 rounded-[14px] px-2.5 text-
 export default function IkterusScreen({
   onBack,
   onSuccess,
+  babyId,
 }: {
   onBack: () => void
   onSuccess: (r: Result) => void
+  babyId: string
 }) {
-  const { loading: draftLoading, userId, detail } = useLatestScreeningDraft("ikterus")
+  const { loading: draftLoading, userId, detail } = useLatestScreeningDraft("ikterus", false, babyId)
   const [form, setForm] = useState({
     usiaBayiHari: "",
     zona: null as 1 | 2 | 3 | 4 | 5 | null,
@@ -68,6 +70,7 @@ export default function IkterusScreen({
     try {
       const res = await submitIkterus({
         userId,
+        babyId,
         usiaBayiHari: Number(form.usiaBayiHari),
         zona: form.zona!,
         onsetJam: Number(form.onsetJam),

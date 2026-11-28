@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { supabase } from "@/data/supabase"
 import { hasVerifiedMfaToken } from "@/features/onboarding/authFlow"
 import { db } from "@/data/db"
+import { syncBbl } from "@/data/sync"
 import { getCurrentUserId } from "@/data/currentUser"
 import SyncStatusNotice from "@/features/sync/SyncStatusNotice"
 import type { ResultEducationTopic } from "@/features/edukasi/resultTopics"
@@ -209,12 +210,14 @@ export default function App() {
         onSave={async ({ tanggal, jam, bb, pb }) => {
           const iso = new Date(`${tanggal}T${jam || "00:00"}`).toISOString()
           try { localStorage.setItem("siaga_birth_date", iso) } catch { /* Pencatatan lokal utama tetap dilanjutkan. */ }
-          try {
-            const uid = await getCurrentUserId()
-            await db.bblProfiles.put({ id: uid, userId: uid, dataLahir: iso, apgar: undefined, usiaGestasi: undefined } as never)
-            // simpan juga berat/panjang di detail jika ada field
-            await db.nifasScreenings.put({ id: `birth-${Date.now()}`, userId: uid, hariKe: 0, parameterVital: { bb, pb, tanggal, jam }, status: "lahir", createdAt: iso } as never)
-          } catch { /* UI tetap dapat melanjutkan; kegagalan simpan tidak mengubah alur lama. */ }
+          const uid = await getCurrentUserId()
+          const baby = {
+            id: uid, userId: uid, nama: "Bayi 1", dataLahir: tanggal,
+            beratLahirGr: bb, panjangLahirCm: pb, createdAt: iso,
+          }
+          await db.bblProfiles.put(baby)
+          if (await syncBbl(baby) === "failed") throw new Error("Data bayi tersimpan di perangkat, tetapi antrean sinkronisasi gagal. Coba simpan lagi.")
+          await db.nifasScreenings.put({ id: `birth-${Date.now()}`, userId: uid, hariKe: 0, parameterVital: { bb, pb, tanggal, jam }, status: "lahir", createdAt: iso } as never)
           setIsPostpartum(true)
           setShowBirth(false)
           setTab("beranda")

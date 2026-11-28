@@ -38,7 +38,17 @@ export interface DoseLog { id: string; userId: string; suplemenId: string; tangg
 export interface ANCVisit { id: string; userId: string; tanggalTerjadwal: string; statusSelesai: boolean; catatan?: string; mingguTerjadwal?: number; tanggalDiedit?: boolean }
 export interface DiaryEntry { id: string; userId: string; tanggal: string; teks: string; mood: number; judul?: string }
 export interface NifasScreening { id: string; userId: string; hariKe: number; parameterVital: Record<string, unknown>; status: string; createdAt: string }
-export interface BBLProfile { id: string; userId: string; dataLahir: string; apgar?: number; usiaGestasi?: number }
+export interface BBLProfile {
+  id: string
+  userId: string
+  nama?: string
+  dataLahir: string
+  apgar?: number
+  usiaGestasi?: number
+  beratLahirGr?: number
+  panjangLahirCm?: number
+  createdAt?: string
+}
 export type BloodGroup = 'A' | 'B' | 'AB' | 'O' | ''
 export interface BirthPlan {
   id: string

@@ -204,10 +204,13 @@ export function syncNifas(e: { id: string; userId: string; hariKe: number; param
   })
 }
 
-export function syncBbl(e: { id: string; userId: string; dataLahir: string; apgar?: number; usiaGestasi?: number }) {
-  void fireOrQueue('bbl_profiles', 'insert', {
-    id: e.id, user_id: e.userId, data_lahir: e.dataLahir || null, apgar: e.apgar ?? null, usia_gestasi: e.usiaGestasi ?? null,
-  })
+export function syncBbl(e: { id: string; userId: string; nama?: string; dataLahir: string; apgar?: number; usiaGestasi?: number; beratLahirGr?: number; panjangLahirCm?: number; createdAt?: string }) {
+  return fireOrQueue('bbl_profiles', 'upsert', {
+    id: e.id, user_id: e.userId, nama: e.nama ?? null, data_lahir: e.dataLahir || null,
+    apgar: e.apgar ?? null, usia_gestasi: e.usiaGestasi ?? null,
+    berat_lahir_gram: e.beratLahirGr ?? null, panjang_lahir_cm: e.panjangLahirCm ?? null,
+    ...(e.createdAt ? { created_at: e.createdAt } : {}),
+  }, 'id', true)
 }
 
 export function syncBirthPlan(plan: BirthPlan): Promise<SyncOutcome> {

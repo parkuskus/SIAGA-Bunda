@@ -136,7 +136,13 @@ export async function generateRingkasanPDF(userId: string): Promise<Blob> {
   if (nifas.length || bbl.length) {
     section('Masa Nifas dan Bayi')
     for (const item of nifas) row(`Nifas hari ke-${item.hariKe}`, `${item.status}  |  ${fmtDate(item.createdAt)}`)
-    for (const item of bbl) row('Tanggal lahir bayi', fmtDate(item.dataLahir))
+    for (const [index, item] of bbl.entries()) {
+      row(item.nama || `Bayi ${index + 1}`, fmtDate(item.dataLahir))
+      if (item.beratLahirGr != null) row('Berat lahir', `${item.beratLahirGr} gram`)
+      if (item.panjangLahirCm != null) row('Panjang lahir', `${item.panjangLahirCm} cm`)
+      if (item.apgar != null) row('APGAR', String(item.apgar))
+      if (item.usiaGestasi != null) row('Usia gestasi bayi', `${item.usiaGestasi} minggu`)
+    }
   }
 
   const pages = doc.getNumberOfPages()

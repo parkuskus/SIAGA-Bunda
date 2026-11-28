@@ -47,7 +47,13 @@ export default function NifasScreen({
 
   useEffect(() => {
     if (!userId) return
-    void db.bblProfiles.get(userId).then((baby) => setBirthDate(baby?.dataLahir?.slice(0, 10) ?? null)).catch(() => setBirthDate(null))
+    void db.bblProfiles.where("userId").equals(userId).toArray()
+      .then((babies) => {
+        const legacy = babies.find((baby) => baby.id === userId)
+        const birth = legacy ?? babies.sort((a, b) => a.dataLahir.localeCompare(b.dataLahir))[0]
+        setBirthDate(birth?.dataLahir?.slice(0, 10) ?? null)
+      })
+      .catch(() => setBirthDate(null))
   }, [userId])
 
   /* eslint-disable react-hooks/set-state-in-effect -- Apply the recorded baby birth date after the Dexie lookup resolves. */

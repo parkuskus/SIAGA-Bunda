@@ -13,22 +13,30 @@ export default function BirthDialog({
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
-  onSave: (data: { tanggal: string; jam: string; bb: number; pb: number }) => void
+  onSave: (data: { tanggal: string; jam: string; bb: number; pb: number }) => Promise<void> | void
 }) {
   const [tanggal, setTanggal] = useState("2026-08-30")
   const [jam, setJam] = useState("02:15")
   const [bb, setBb] = useState("3200")
   const [pb, setPb] = useState("49")
   const [err, setErr] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const bbNum = Number(bb)
     const pbNum = Number(pb)
     if (!tanggal) return setErr("Tanggal lahir wajib diisi")
     if (bbNum < 1000 || bbNum > 6000) return setErr("Berat lahir (gram) harus 1.000–6.000")
     if (pbNum < 30 || pbNum > 60) return setErr("Panjang lahir (cm) harus 30–60")
     setErr(null)
-    onSave({ tanggal, jam, bb: bbNum, pb: pbNum })
+    setSaving(true)
+    try {
+      await onSave({ tanggal, jam, bb: bbNum, pb: pbNum })
+    } catch (caught) {
+      setErr(caught instanceof Error ? caught.message : "Data bayi belum tersimpan. Coba lagi.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -70,11 +78,11 @@ export default function BirthDialog({
           {err && <p className="text-xs text-[#E57373] text-center">{err}</p>}
         </div>
         <div className="flex gap-2.5 border-t border-[#E6EEEA] bg-white p-4">
-          <Button variant="outline" className="h-10 flex-1 rounded-full border-[#D9E7E2] bg-white text-[#33443F] hover:bg-[#F7FAF8]" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" disabled={saving} className="h-10 flex-1 rounded-full border-[#D9E7E2] bg-white text-[#33443F] hover:bg-[#F7FAF8]" onClick={() => onOpenChange(false)}>
             Batal
           </Button>
-          <Button className="h-10 flex-1 gap-1.5 rounded-full bg-[#4A6E54] text-white hover:bg-[#3D5C46]" onClick={handleSave}>
-            Simpan <Check className="size-4" />
+          <Button disabled={saving} className="h-10 flex-1 gap-1.5 rounded-full bg-[#4A6E54] text-white hover:bg-[#3D5C46]" onClick={() => void handleSave()}>
+            {saving ? "Menyimpan" : "Simpan"} <Check className="size-4" />
           </Button>
         </div>
       </DialogContent>

@@ -10,7 +10,7 @@ import useScreeningValidation from "../components/useScreeningValidation"
 import { numericOrMissing } from "../components/screeningValidationUI"
 
 export default function DmgScreen({ onBack, onSuccess }: { onBack: () => void; onSuccess: (r: Awaited<ReturnType<typeof submitDMG>>) => void }) {
-  const { loading: draftLoading, userId, detail, profile } = useLatestScreeningDraft("dmg")
+  const { loading: draftLoading, userId, detail, profile, prefill } = useLatestScreeningDraft("dmg", true)
   const [form, setForm] = useState({ usia: "", bbPreKg: "", tbCm: "", ukMinggu: "", riwayatDMG: false, riwayatMakrosomia: false, riwayatDMKeluarga: false, glikosuria: null as boolean | null, pcos: false, etnisRisiko: false })
   const [faktorDitinjau, setFaktorDitinjau] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -22,8 +22,8 @@ export default function DmgScreen({ onBack, onSuccess }: { onBack: () => void; o
     if (detail) {
       setForm({
         usia: String(detail.usia ?? ""),
-        bbPreKg: String(detail.bbPreKg ?? ""),
-        tbCm: String(detail.tbCm ?? ""),
+        bbPreKg: String(detail.bbPreKg ?? prefill?.bbPreKg ?? ""),
+        tbCm: String(detail.tbCm ?? prefill?.tbCm ?? ""),
         ukMinggu: String(detail.ukMinggu ?? ""),
         riwayatDMG: detail.riwayatDMG === true,
         riwayatMakrosomia: detail.riwayatMakrosomia === true,
@@ -36,7 +36,7 @@ export default function DmgScreen({ onBack, onSuccess }: { onBack: () => void; o
       return
     }
     setForm((current) => ({ ...current, usia: ageFromProfile(profile), ukMinggu: ukFromProfile(profile) }))
-  }, [draftLoading, detail, profile])
+  }, [draftLoading, detail, profile, prefill])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const bbPreKg = Number(form.bbPreKg)
@@ -67,6 +67,13 @@ export default function DmgScreen({ onBack, onSuccess }: { onBack: () => void; o
       <div className="space-y-3.5">
         <section className="space-y-2.5 rounded-[24px] bg-[#EAF4F0] p-3.5">
           <h2 className="!m-0 text-sm font-bold text-[#1D2B29]">Data Ibu</h2>
+          {(prefill?.bbPreKgTanggal || prefill?.tbCmTanggal) && (
+            <p className="text-xs leading-relaxed text-[#33443F]">
+              {prefill.bbPreKgTanggal && <>BB sebelum hamil dari skrining tanggal {new Date(`${prefill.bbPreKgTanggal}T00:00:00`).toLocaleDateString("id-ID")}. </>}
+              {prefill.tbCmTanggal && <>Tinggi badan dari skrining tanggal {new Date(`${prefill.tbCmTanggal}T00:00:00`).toLocaleDateString("id-ID")}. </>}
+              Periksa dan ubah jika perlu.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2.5">
             {[
               { key: "usia", label: "Usia (tahun)", value: form.usia },

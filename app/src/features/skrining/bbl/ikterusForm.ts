@@ -6,6 +6,7 @@ import { validateScreening } from '../screeningCompleteness'
 // S-05a: IkterusScreen — spec S-05a:328-333 — wrap kramerZone.ts
 export type IkterusInput = {
   userId: string
+  babyId: string
   usiaBayiHari: number
   zona: 1 | 2 | 3 | 4 | 5
   onsetJam: number
@@ -16,6 +17,9 @@ export type IkterusInput = {
 }
 
 export async function submitIkterus(input: IkterusInput) {
+  if (!input.babyId) throw new Error('ID bayi wajib')
+  const baby = await db.bblProfiles.get(input.babyId)
+  if (!baby || baby.userId !== input.userId) throw new Error('Data bayi tidak ditemukan untuk akun ini')
   const errs = validateScreening('ikterus', input as unknown as Record<string, unknown>)
   if (Object.keys(errs).length) throw Object.assign(new Error(Object.values(errs)[0]), { errs })
   const { status, warna } = kategoriKramer({ zona: input.zona, onsetJam: input.onsetJam, fesesDempul: input.fesesDempul })

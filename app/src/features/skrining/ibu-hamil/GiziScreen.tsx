@@ -12,7 +12,7 @@ import ReferenceHint from "../components/ReferenceHint"
 type GiziResult = Awaited<ReturnType<typeof submitGizi>>
 
 export default function GiziScreen({ onBack, onSuccess, onOpenProfile }: { onBack: () => void; onSuccess: (r: GiziResult) => void; onOpenProfile: () => void }) {
-  const { loading: draftLoading, userId, detail, profile } = useLatestScreeningDraft("imt_lila")
+  const { loading: draftLoading, userId, detail, profile, prefill } = useLatestScreeningDraft("imt_lila", true)
   const [form, setForm] = useState({ bbPreKg: "", tbCm: "", lilaCm: "", bbSekarangKg: "", ukMinggu: "" })
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -23,16 +23,22 @@ export default function GiziScreen({ onBack, onSuccess, onOpenProfile }: { onBac
     if (draftLoading) return
     if (detail) {
       setForm({
-        bbPreKg: String(detail.bbPreKg ?? ""),
-        tbCm: String(detail.tbCm ?? ""),
+        bbPreKg: String(detail.bbPreKg ?? prefill?.bbPreKg ?? ""),
+        tbCm: String(detail.tbCm ?? prefill?.tbCm ?? ""),
         lilaCm: String(detail.lilaCm ?? ""),
-        bbSekarangKg: String(detail.bbSekarangKg ?? ""),
+        bbSekarangKg: String(detail.bbSekarangKg ?? prefill?.bbSekarangKg?.value ?? ""),
         ukMinggu: weekFromSavedOrProfile(detail.ukMinggu, ukFromProfile(profile)),
       })
       return
     }
-    setForm((current) => ({ ...current, ukMinggu: ukFromProfile(profile) }))
-  }, [draftLoading, detail, profile])
+    setForm((current) => ({
+      ...current,
+      bbPreKg: String(prefill?.bbPreKg ?? ""),
+      tbCm: String(prefill?.tbCm ?? ""),
+      bbSekarangKg: String(prefill?.bbSekarangKg?.value ?? ""),
+      ukMinggu: ukFromProfile(profile),
+    }))
+  }, [draftLoading, detail, profile, prefill])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const bbPreKg = numericOrMissing(form.bbPreKg)
@@ -64,6 +70,14 @@ export default function GiziScreen({ onBack, onSuccess, onOpenProfile }: { onBac
       <div className="space-y-3.5">
         <section className="space-y-2.5 rounded-[24px] bg-[#EAF4F0] p-3.5">
           <h2 className="!m-0 text-sm font-bold text-[#1D2B29]">Pengukuran <ScreeningMarker error={validation.errors.ukMinggu} /></h2>
+          {(prefill?.bbPreKgTanggal || prefill?.tbCmTanggal) && (
+            <p className="text-xs leading-relaxed text-[#33443F]">
+              {prefill.bbPreKgTanggal && <>BB awal dari skrining tanggal {new Date(`${prefill.bbPreKgTanggal}T00:00:00`).toLocaleDateString("id-ID")}. </>}
+              {prefill.tbCmTanggal && <>Tinggi dari skrining tanggal {new Date(`${prefill.tbCmTanggal}T00:00:00`).toLocaleDateString("id-ID")}. </>}
+              Periksa dan ubah jika perlu.
+            </p>
+          )}
+          {prefill?.bbSekarangKg && !detail?.bbSekarangKg && <p className="text-xs text-[#33443F]">BB kini terisi dari catatan {new Date(`${prefill.bbSekarangKg.tanggal}T00:00:00`).toLocaleDateString("id-ID")}. Periksa dan ubah jika perlu.</p>}
           <div className="grid grid-cols-2 gap-2.5">
             {[
               { key: "bbPreKg", label: "BB awal (kg)", value: form.bbPreKg },

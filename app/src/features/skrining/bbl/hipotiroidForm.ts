@@ -5,6 +5,7 @@ import { validateScreening } from '../screeningCompleteness'
 // S-05b: HipotiroidScreen — spec S-05b:340-344
 export type HipotiroidInput = {
   userId: string
+  babyId: string
   sudahTSH: boolean
   usiaBayiHari?: number
   gejala?: { ikterusLama?: boolean; konstipasi?: boolean; tangisanSerak?: boolean; aktivitasKurang?: boolean; lidahBesar?: boolean }
@@ -33,6 +34,9 @@ export function kategoriHipotiroid(v: HipotiroidInput): 'HIJAU' | 'KUNING' | 'ME
 }
 
 export async function submitHipotiroid(input: HipotiroidInput) {
+  if (!input.babyId) throw new Error('ID bayi wajib')
+  const baby = await db.bblProfiles.get(input.babyId)
+  if (!baby || baby.userId !== input.userId) throw new Error('Data bayi tidak ditemukan untuk akun ini')
   const errs = validateScreening('hipotiroid', input as unknown as Record<string, unknown>)
   if (Object.keys(errs).length) throw Object.assign(new Error(Object.values(errs)[0]), { errs })
   const kategori = kategoriHipotiroid(input)

@@ -1,10 +1,10 @@
 import { Baby } from "lucide-react"
+import type { BBLProfile } from "@/data/db"
 
 type Props = {
   isPostpartum: boolean
   hariNifas: number
-  beratLahir: number | null
-  panjangLahir: number | null
+  babies: BBLProfile[]
   uk: number | null
   progress: number | null
   countdown: number | null
@@ -15,14 +15,11 @@ type Props = {
 }
 
 // S-02a + progress — kartu pekan putih (di stage) + kartu progress mint
-export default function ProfileCard({ isPostpartum, hariNifas, beratLahir, panjangLahir, uk, progress, countdown, hplLabel, gpa, onShowBirth, onBackToPregnant }: Props) {
+export default function ProfileCard({ isPostpartum, hariNifas, babies, uk, progress, countdown, hplLabel, gpa, onShowBirth, onBackToPregnant }: Props) {
   const trimester = uk === null ? null : uk < 14 ? 1 : uk < 28 ? 2 : 3
   if (isPostpartum) {
     const hariTersisa = Math.max(0, 42 - hariNifas)
     const progressNifas = Math.min(100, (hariNifas / 42) * 100)
-    const ukuranBayi = beratLahir !== null && panjangLahir !== null
-      ? `${(beratLahir / 1000).toFixed(1)} kg, ${panjangLahir} cm`
-      : "Belum diisi"
     return (
       <div className="w-full space-y-3 rounded-[24px] bg-[#EAF4F0] p-4">
         <p className="text-xs font-bold tracking-[0.08em] text-[#4A6E54]">MASA NIFAS</p>
@@ -45,7 +42,15 @@ export default function ProfileCard({ isPostpartum, hariNifas, beratLahir, panja
             </div>
             <div className="min-w-0 rounded-[18px] bg-white px-3 py-2.5">
               <p className="text-xs text-[#33443F]">Bayi</p>
-              <p className="mt-0.5 truncate text-[15px] font-semibold leading-tight text-[#1D2B29]">{ukuranBayi}</p>
+              {babies.length ? (
+                <ul className="mt-1 space-y-1">
+                  {babies.map((baby, index) => (
+                    <li key={baby.id} className="text-xs font-semibold leading-tight text-[#1D2B29]">
+                      {baby.nama || `Bayi ${index + 1}`}: {baby.beratLahirGr != null && baby.panjangLahirCm != null ? `${(baby.beratLahirGr / 1000).toFixed(1)} kg, ${baby.panjangLahirCm} cm` : "Data ukuran belum diisi"}
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="mt-0.5 text-xs font-semibold leading-tight text-[#1D2B29]">Belum diisi</p>}
             </div>
           </div>
           <button onClick={onBackToPregnant} className="min-h-11 w-full rounded-[16px] bg-white px-3 text-sm font-semibold text-[#4A6E54] transition-colors hover:bg-[#F7FAF8] active:scale-[0.99]">Kembali ke mode hamil</button>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { BookOpen, Check, TriangleAlert, OctagonAlert, Share2, RotateCcw, Home, MessageCircleHeart } from "lucide-react"
+import { BookOpen, Check, TriangleAlert, OctagonAlert, Share2, RotateCcw, Home, MessageCircleHeart, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import EmergencyOverlay from "@/shared/components/EmergencyOverlay"
 
@@ -25,6 +25,7 @@ type Props = {
   onOpenChat: () => void
   onUlangi: () => void
   onBeranda: () => void
+  onDaftarSkrining: () => void
   onBagikan: () => void
 }
 
@@ -86,6 +87,7 @@ export default function SkriningResultScreen({
   onOpenChat,
   onUlangi,
   onBeranda,
+  onDaftarSkrining,
   onBagikan,
 }: Props) {
   const [emergencyOpen, setEmergencyOpen] = useState(warna === "MERAH")
@@ -206,6 +208,15 @@ export default function SkriningResultScreen({
             <Home className="size-4" /> Beranda
           </Button>
         </div>
+        <Button
+          variant="outline"
+          aria-label="Daftar skrining"
+          disabled={warna === "MERAH" && emergencyOpen}
+          onClick={onDaftarSkrining}
+          className="min-h-[46px] w-full rounded-full border-[#D9E7E2] bg-white text-[#33443F]"
+        >
+          <ClipboardList className="size-4" /> Daftar skrining
+        </Button>
       </main>
 
       <div className="relative mx-auto mt-auto w-full max-w-[480px]">
